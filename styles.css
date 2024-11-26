@@ -193,7 +193,7 @@ div.video-annotations {
   font-size: 24px;
   width: 48px;
   height: 48px;
-  background-color: rgba(0,0,0,0.5);
+  background-color: var(--byellow);
   color: white;
   border-radius: 50rem;
   display: flex;
@@ -203,6 +203,9 @@ div.video-annotations {
   cursor: pointer;
 }
 
+.btn:hover {
+  box-shadow: 0 0 4px rgba(0,0,0,0.5);
+}
 h4 {
     margin: 8px auto;
     font-size: 120%;

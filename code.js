@@ -1173,7 +1173,7 @@ async function punctuate(videoId, languageCode = 'en') {
     buildWords(punctuatedOriginalTimes, original)
     const vocab = await createVocabulary(videoid, videoTitle + ' ' + videoDescription, languageCode)
     computeSummary(videoid, transcript, languageCode, vocab)
-    punctuated.innerHTML = spin('Transcribing...')
+    punctuated.innerHTML = '<p>' + spin('Transcribing...') + '</p>'
     let startTime = Date.now()
     let chunks = chunkText(transcript, chunkSize)
     console.log('n chunks=', chunks.length)
