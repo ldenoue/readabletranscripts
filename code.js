@@ -310,7 +310,10 @@ async function getModelAnswer(prompt, maxretry = 4) {
             usageDiv.textContent = `for ${simulatedUsers.toLocaleString()} users: ${inputTokens} ${formatPrice(priceInput)} ${outputTokens} ${formatPrice(priceOutput)} ${totalTokens} ${formatPrice(priceTotal)}`
             return res
         } catch (error) {
-            console.log('error getting model, waiting for 2 seconds', error)
+            if (error.message && error.message.indexOf('API_KEY_INVALID')) {
+              console.log('error: API_KEY_INVALID')
+              return null
+            }
             await timeout(2000)
         }
     }
@@ -338,6 +341,8 @@ async function punctuateText(c, vocab = '', lang = 'en', p = null) {
         console.log('prompt=', p, c)
     let res = await getModelAnswer(finalPrompt)
     return new Promise((a, r) => {
+        if (!res)
+            a('')
         let text = res.response.text()
         if (text.indexOf(lang) === 0)
             text = text.substring(lang.length)
@@ -443,7 +448,6 @@ function testDiff(wordTimes = [], punctuated = '') {
         }
         idx++
     }
-    let prevStart = 0
     let i = 0
     while (i < othera.length) {
         let prevEnd = 0
@@ -452,7 +456,6 @@ function testDiff(wordTimes = [], punctuated = '') {
             i++
         }
         while (i < othera.length && othera[i].s === undefined) {
-            //console.log('no start',othera[i].w)
             othera[i].s = prevEnd
             prevEnd += 200
             othera[i].e = prevEnd
@@ -507,7 +510,6 @@ function endOfSentence(w) {
         return false
     let lastChar = w[w.length - 1]
     return ends.indexOf(lastChar) !== -1
-    //return w > '' && w[w.length-1] === '.'
 }
 function msToTime(duration) {
     if (!duration)
@@ -525,8 +527,6 @@ function msToTime(duration) {
     return minutes + ":" + seconds
 }
 function buildWords(words, r = punctuated) {
-    if (!r.shownWords)
-        r.shownWords = {}
     let p = null
     let end = false
     for (let w of words) {
@@ -541,11 +541,6 @@ function buildWords(words, r = punctuated) {
             }
         }
         end = endOfSentence(w.o)
-        if (r.shownWords[key]) {
-            continue;
-        }
-        r.shownWords[key] = true
-
         if (w.p && w.o > '') {
             p = document.createElement('p')
             p.className = 'p'
@@ -570,6 +565,7 @@ function buildWords(words, r = punctuated) {
         let span = document.createElement('span')
         span.textContent = w.o + ' '
         if (w.s !== undefined) {
+            span.o = w.o
             span.start = w.s
             span.end = w.e
             span.addEventListener('click', (evt) => {
@@ -595,6 +591,35 @@ function buildWords(words, r = punctuated) {
             idx += 1
         }
     }
+
+    /*let paragraphs = r.querySelectorAll('p')
+    let inCode = false
+    let lines = []
+    let firstP = null
+    for (let p of paragraphs) {
+      let spans = p.querySelectorAll('span')
+      if (spans.length === 0)
+        continue
+      let line = [...spans].map(s => s.textContent).join('')
+      let isSeparator = spans[0].o === '```'
+      if (isSeparator) {
+          //lines.push(line)
+          inCode = !inCode
+          if (!inCode) {
+            //lines.push(line)
+            console.log(lines)
+            firstP.innerHTML = `<code>` + lines.join('\n') + '</code>'
+            lines = []
+          } else {
+            firstP = p
+          }
+      }
+      if (inCode && !isSeparator) {
+          lines.push(line)
+          if (p !== firstP)
+            p.remove()
+      }
+    }*/
     updateHighlights()
 }
 
@@ -715,11 +740,15 @@ async function convertAudioFromUrlToBase64(url) {
 async function createVocabulary(videoId, description = '', languageCode = 'en') {
     const key = languageCode + '-vocab-' + videoId
     const prevVocab = await localforage.getItem(key)
-    if (prevVocab)
+    if (prevVocab) {
+        console.log('cached vocab')
         return prevVocab
+    }
     if (!description || description.trim().length === 0)
         return ''
     let res = await getModelAnswer(`Return important words including names from this description and return as a simple list separated by commas: ${description}`)
+    if (!res)
+        return ''
     let vocab = res.response.text().replace(/\s+/g, ' ')
     localforage.setItem(key, vocab)
     return vocab
@@ -887,8 +916,10 @@ function findCaptionAt(time) {
 async function getSummary(videoId, transcript, lang = 'en', vocab) {
     const key = [lang, 'sum', videoId].join('-')
     let d = await localforage.getItem(key)
-    if (d)
+    if (d) {
+        console.log('cached summary')
         return d
+    }
     const summaryPrompt = `
   - write a very short summary of the following video transcript
   - use this list of dictionary words: """${vocab}"""
@@ -897,6 +928,8 @@ async function getSummary(videoId, transcript, lang = 'en', vocab) {
   Transcript to summarize:
   """${transcript}"""`
     const result = await getModelAnswer(summaryPrompt)
+    if (!result)
+        return ''
     let summaryText = result.response.text()
     if (summaryText.indexOf(lang) === 0)
         summaryText = summaryText.substring(lang.length)
@@ -1156,7 +1189,6 @@ async function punctuate(videoId, languageCode = 'en') {
       return
     }
     for (let l in json.translationLanguages) {
-      console.log(l, json.translationLanguages[l])
       let option = document.createElement('option')
       option.value = l
       option.textContent = json.translationLanguages[l]
@@ -1194,6 +1226,7 @@ async function punctuate(videoId, languageCode = 'en') {
         let punctuatedText = prevPunctuatedText
         let punctuatedTimes = testDiff(wordTimes, punctuatedText)
         punctuated.innerHTML = ''
+        console.log('here')
         buildWords(punctuatedTimes)
         return
     }
@@ -1275,6 +1308,32 @@ keyBtn.onclick = () => {
   window.localStorage.API_KEY = apiKey.value.trim()
   window.location.reload()
 } 
+
+function startObserving() {
+  const target = document.getElementById("playercontainer");
+  const marker = document.getElementById("marker");
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      console.log(entries)
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) {
+          target.classList.add("fixed");
+        } else {
+          target.classList.remove("fixed");
+        }
+      });
+    },
+    {
+      root: null, // Use the viewport as the root
+      threshold: 0, // Trigger as soon as the marker leaves the viewport
+    }
+  );
+  observer.observe(marker);
+}
+
+// This will make the player fixed when the marker above it leaves the viewport
+startObserving()
 
 let searchTerm = params.get('q')
 if (searchTerm > '') {

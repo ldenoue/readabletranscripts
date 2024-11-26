@@ -75,7 +75,7 @@ input[type=color] {
     aspect-ratio: 16/9;
     max-width: 100%;
     margin: 0 auto;
-    display: flex;
+    display: block;
     flex-direction: column;
     justify-content: center;
     align-items: center;
@@ -212,10 +212,8 @@ h4 {
 }
 
 #col1 {
-  position: sticky;
   display: flex;
   flex-direction: column;
-  top: 0;
   gap: 8px;
 }
 
@@ -462,7 +460,16 @@ footer {
   top: 100%;
 }
 
+.fixed {
+  position: fixed !important;
+  width: 30vw !important;
+  top: 16px;
+}
+
 @media (orientation: portrait) {
+  .fixed {
+    width: calc(100% - 32px) !important;
+  }
   .row {
     display: block;
   }
@@ -508,6 +515,12 @@ h2, h1 {
 #vurl {
   font-size: 90%;
 }
+
+code {
+  white-space: pre-wrap;
+  font-size: 1rem;
+  opacity: 0.8;
+}
 @media print {
   .btn, #tools, select {
     display: none;
@@ -533,4 +546,8 @@ h2, h1 {
     .github-corner, #highlighter, #usageDiv {
       display: none;
     }
+}
+
+#marker {
+  height: 1px;
 }
