@@ -213,9 +213,16 @@ h4 {
 
 #col1 {
   position: sticky;
+  display: flex;
+  flex-direction: column;
   top: 0;
+  gap: 8px;
 }
 
+select {
+  font-family: var(--font-name);
+  font-size: 1rem;
+}
 .header {
     display: none;
 }
@@ -469,29 +476,6 @@ footer {
       display: none;
   }
 }
-@media print {
-  #thumb {
-    display: block;
-  }
-  #playercontainer {
-    display: none;
-  }
-  .fa-solid {
-    display: none;
-  }
-    .row {
-        display: block;
-    }
-    #col1, #col2 {
-        width: 100%;
-    }
-    #col3 {
-        display: none;
-    }
-    .github-corner, #highlighter, #usageDiv {
-      display: none;
-    }
-}
 
 h2, h1 {
   margin: 0;
@@ -519,4 +503,34 @@ h2, h1 {
 
 #thumb {
   width: 320px;
+}
+
+#vurl {
+  font-size: 90%;
+}
+@media print {
+  .btn, #tools, select {
+    display: none;
+  }
+  #thumb {
+    display: block;
+  }
+  #playercontainer {
+    display: none;
+  }
+  .fa-solid {
+    display: none;
+  }
+    .row {
+        display: block;
+    }
+    #col1, #col2 {
+        width: 100%;
+    }
+    #col3 {
+        display: none;
+    }
+    .github-corner, #highlighter, #usageDiv {
+      display: none;
+    }
 }

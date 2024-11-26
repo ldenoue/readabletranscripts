@@ -1144,6 +1144,7 @@ async function punctuate(videoId, languageCode = 'en') {
     if (chapters.length === 0)
         chapters = computeChapters(json.description)
     vtitle.textContent = json.title
+    vurl.textContent = vurl.href = `https://www.youtube.com/watch?v=${videoId}`
     
     thumb.src = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`
     const img = new Image(thumb.src)
@@ -1154,6 +1155,15 @@ async function punctuate(videoId, languageCode = 'en') {
       showError('No transcript for this video')
       return
     }
+    for (let l in json.translationLanguages) {
+      console.log(l, json.translationLanguages[l])
+      let option = document.createElement('option')
+      option.value = l
+      option.textContent = json.translationLanguages[l]
+      option.selected = l === languageCode
+      selectLanguage.appendChild(option)
+    }
+    selectLanguage.onchange = () => window.location.href = '/?id=' + videoId + '&language=' + selectLanguage.value
     await localforage.setItem(videoId, json)
     json.chunks = json[languageCode].chunks
     json.text = json.chunks.map(c => c.text).join(' ')
