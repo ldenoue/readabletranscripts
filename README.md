@@ -3,6 +3,8 @@
 This repo shows how to fetch the raw YouTube transcripts and use the Gemini Flash 8B API to format them.
 Made by [ldenoue](https://twitter.com/ldenoue)
 
+[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/ldenoue)
+
 # How to use
 
 open https://ldenoue.github.io/readabletranscripts and type any search term

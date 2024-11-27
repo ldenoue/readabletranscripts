@@ -26,13 +26,13 @@
       <h1><a href="/readabletranscripts">Readable Transcripts</a></h1>
       <form method="get">
         <div class="flexrow">
-          <input type="text" name="q" id="q" size="40" placeholder="search or paste YouTube link" value="">
+          <input type="text" name="q" id="q" placeholder="YouTube link or query" value="">
           <button type="submit" id="searchBtn">Search</button>
         </div>
       </form>
       <form method="get">
         <div class="flexrow">
-          <input type="text" id="apiKey" size="40" placeholder="Gemini API Key" value="">
+          <input type="text" id="apiKey" placeholder="Gemini API Key" value="">
           <button type="submit" id="keyBtn">Set Key</button>
         </div>
       </form>
@@ -43,7 +43,7 @@
       <div class="column" id="col1">
         <h2><a href="/readabletranscripts"><i class="btn fa-solid fa-home"></i></a></h2>
         <b id="vtitle"></b>
-        <a id="vurl" target="_blank" href=""></a>
+        <div><span id="vduration"></span> <a id="vurl" target="_blank" href=""></a></div>
         <div id="marker"></div>
         <div id="playercontainer">
           <div id="player"></div>

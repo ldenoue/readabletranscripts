@@ -307,7 +307,8 @@ async function getModelAnswer(prompt, maxretry = 4) {
             const priceInput = computePrice(inputTokens, inputPrice)
             const priceOutput = computePrice(outputTokens, outputPrice)
             const priceTotal = priceInput + priceOutput
-            usageDiv.textContent = `for ${simulatedUsers.toLocaleString()} users: ${inputTokens} ${formatPrice(priceInput)} ${outputTokens} ${formatPrice(priceOutput)} ${totalTokens} ${formatPrice(priceTotal)}`
+            usageDiv.textContent = `Input #${inputTokens}=${formatPrice(priceInput)} Output #${outputTokens}=${formatPrice(priceOutput)} #${totalTokens}=${formatPrice(priceTotal)}`
+            usageDiv.style.display = 'block'
             return res
         } catch (error) {
             if (error.message && error.message.indexOf('API_KEY_INVALID')) {
@@ -353,7 +354,6 @@ async function punctuateText(c, vocab = '', lang = 'en', p = null) {
 async function mergeSentences(a, b, vocab, languageCode = 'en') {
     let res = await punctuateText(clean(a) + ' ' + clean(b), vocab, languageCode, `please fix this sentence, without paragraphrasing, write in ${languageName(languageCode)}: `)
     res = res.replace(/\s+/g, ' ')
-    console.log('merge=', res)
     return res
 }
 
@@ -376,18 +376,15 @@ function clean(a) {
 }
 
 function getWords(text) {
-    let paragraphs = text.split('\n')
+    let paragraphs = text.split('\n').filter(p => p > '')
     let res = []
     for (let p of paragraphs) {
-        // modern-day startups b1cicJ3OTvg
         let words = p.split(/[\s-]+/).map(a => new Object({ o: a, w: a.trim().toLowerCase().replace(/\W+/g, '') }))
-        //words = words.filter(w => w.o > '')
-        if (words.length > 0) {
+        if (words.length > 0 && words[0].o > '') {
             words[0].p = true
         }
         res = res.concat(words)
     }
-    //console.log(res)
     return res
 }
 function prepareWords(chunks) {
@@ -504,6 +501,12 @@ function insertChapter(p, c) {
     //p.innerHTML = '<h4>' + c.text + '</h4>' + p.innerHTML
     p.parentElement.insertBefore(header, p)
 }
+
+function numberedItem(w) {
+  if (w === '*')
+    return true
+  return w.match(/^\d\./g) !== null
+}
 function endOfSentence(w) {
     const ends = ['.', '?', '!']
     if (!(w > ''))
@@ -529,10 +532,10 @@ function msToTime(duration) {
 function buildWords(words, r = punctuated) {
     let p = null
     let end = false
+    let inBold = false
     for (let w of words) {
         if (w.o === '.')
             continue
-        const key = w.o + '-' + w.s
         if (end) {
             for (let c of chapters) {
                 if (!c.taken && c.start <= w.s + 1000 && !c.taken) {
@@ -542,17 +545,23 @@ function buildWords(words, r = punctuated) {
         }
         end = endOfSentence(w.o)
         if (w.p && w.o > '') {
+          console.log(w)
             p = document.createElement('p')
             p.className = 'p'
             p.start = w.s
-            let ts = document.createElement('div')
-            ts.className = 'ts'
-            ts.start = w.s
-            ts.textContent = msToTime(p.start)
-            ts.addEventListener('click', () => {
-                play(ts.start)
-            })
-            p.appendChild(ts)
+            if (w.p && !numberedItem(w.o)) {
+              let ts = document.createElement('div')
+              ts.className = 'ts'
+              ts.start = w.s
+              ts.textContent = msToTime(p.start)
+              ts.addEventListener('click', () => {
+                  play(ts.start)
+              })
+              p.appendChild(ts)
+            } else {
+              p.classList.add('plist')
+              w.o = '- '
+            }
             r.appendChild(p)
             for (let c of chapters) {
                 if (c.start <= w.s + 1000 && !c.taken) {
@@ -563,6 +572,20 @@ function buildWords(words, r = punctuated) {
         if (w.o === '')
             continue
         let span = document.createElement('span')
+        if (w.o.indexOf('```') !== -1) {
+          inCode = true
+        } else {
+          if (w.o.indexOf('`') === 0) {
+              w.o = w.o.substring(1)
+              inBold = true
+          }
+          if (inBold)
+              span.classList.add('bold')
+          if (w.o.indexOf('`') > 0) {
+            inBold = false
+            w.o = w.o.substring(0,w.o.length-1)
+          }
+        }
         span.textContent = w.o + ' '
         if (w.s !== undefined) {
             span.o = w.o
@@ -1176,8 +1199,10 @@ async function punctuate(videoId, languageCode = 'en') {
     chapters = parseYTChapters(json.chapters) ?? []
     if (chapters.length === 0)
         chapters = computeChapters(json.description)
+    videoDuration = json.duration
     vtitle.textContent = json.title
     vurl.textContent = vurl.href = `https://www.youtube.com/watch?v=${videoId}`
+    vduration.textContent = msToTime(videoDuration * 1000)
     
     thumb.src = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`
     const img = new Image(thumb.src)
@@ -1200,7 +1225,6 @@ async function punctuate(videoId, languageCode = 'en') {
     json.chunks = json[languageCode].chunks
     json.text = json.chunks.map(c => c.text).join(' ')
     let transcript = json.text
-    videoDuration = json.duration
     const videoTitle = json.title || ''
     const videoDescription = json.description || ''
 
@@ -1219,15 +1243,16 @@ async function punctuate(videoId, languageCode = 'en') {
     let startTime = Date.now()
     let chunks = chunkText(transcript, chunkSize)
     console.log('n chunks=', chunks.length)
-    const DEBUG = false
     const puncKey = languageCode + '-punc-' + videoId
     const prevPunctuatedText = await localforage.getItem(puncKey)
-    if (!DEBUG && prevPunctuatedText) {
+    if (prevPunctuatedText) {
         let punctuatedText = prevPunctuatedText
         let punctuatedTimes = testDiff(wordTimes, punctuatedText)
         punctuated.innerHTML = ''
-        console.log('here')
-        buildWords(punctuatedTimes)
+        window.punctuatedText = punctuatedText
+        window.punctuatedTimes = punctuatedTimes
+        punctuated.innerHTML = marked(punctuatedText)
+        //buildWords(punctuatedTimes)
         return
     }
     let promises = []
@@ -1261,11 +1286,9 @@ async function punctuate(videoId, languageCode = 'en') {
         let merged = mergeSentences(a.end, b.start, vocab, languageCode)
         merges.push(merged)
     }
-    console.log('waiting for merges', merges.length)
     let fragments = await Promise.all(merges)
     let punctuatedText = parts[0].left
     for (let i = 0; i < fragments.length; i++) {
-        //console.log(i, parts[i])
         punctuatedText += ' ' + fragments[i] + ' ' + parts[i].right
     }
     punctuatedText = punctuatedText.replace(/,\s+/g, ', ')
@@ -1312,10 +1335,8 @@ keyBtn.onclick = () => {
 function startObserving() {
   const target = document.getElementById("playercontainer");
   const marker = document.getElementById("marker");
-
   const observer = new IntersectionObserver(
     (entries) => {
-      console.log(entries)
       entries.forEach((entry) => {
         if (!entry.isIntersecting) {
           target.classList.add("fixed");
