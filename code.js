@@ -307,7 +307,7 @@ async function getModelAnswer(prompt, maxretry = 4) {
             const priceInput = computePrice(inputTokens, inputPrice)
             const priceOutput = computePrice(outputTokens, outputPrice)
             const priceTotal = priceInput + priceOutput
-            usageDiv.textContent = `Input #${inputTokens}=${formatPrice(priceInput)} Output #${outputTokens}=${formatPrice(priceOutput)} #${totalTokens}=${formatPrice(priceTotal)}`
+            usageDiv.textContent = `Tokens ${totalTokens} Cost ${formatPrice(priceTotal)}`
             usageDiv.style.display = 'block'
             return res
         } catch (error) {
@@ -338,8 +338,6 @@ async function punctuateText(c, vocab = '', lang = 'en', p = null) {
   Here is the video text transcript to fix:
   """${c}"""`
     let finalPrompt = p ? p + c : prompt
-    if (p)
-        console.log('prompt=', p, c)
     let res = await getModelAnswer(finalPrompt)
     return new Promise((a, r) => {
         if (!res)
@@ -533,6 +531,7 @@ function buildWords(words, r = punctuated) {
     let p = null
     let end = false
     let inBold = false
+    let inCode = false
     for (let w of words) {
         if (w.o === '.')
             continue
@@ -545,35 +544,40 @@ function buildWords(words, r = punctuated) {
         }
         end = endOfSentence(w.o)
         if (w.p && w.o > '') {
-          console.log(w)
-            p = document.createElement('p')
-            p.className = 'p'
-            p.start = w.s
-            if (w.p && !numberedItem(w.o)) {
-              let ts = document.createElement('div')
-              ts.className = 'ts'
-              ts.start = w.s
-              ts.textContent = msToTime(p.start)
-              ts.addEventListener('click', () => {
-                  play(ts.start)
-              })
-              p.appendChild(ts)
-            } else {
-              p.classList.add('plist')
-              w.o = '- '
-            }
-            r.appendChild(p)
-            for (let c of chapters) {
-                if (c.start <= w.s + 1000 && !c.taken) {
-                    insertChapter(p, c)
-                }
+            if (!inCode) {
+                p = document.createElement('p')
+                p.className = 'p'
+                p.start = w.s
+              if (w.p && !numberedItem(w.o)) {
+                let ts = document.createElement('div')
+                ts.className = 'ts'
+                ts.start = w.s
+                ts.textContent = msToTime(p.start)
+                ts.addEventListener('click', () => {
+                    play(ts.start)
+                })
+                p.appendChild(ts)
+              } else {
+                p.classList.add('plist')
+                w.o = '- '
+              }
+              r.appendChild(p)
+              for (let c of chapters) {
+                  if (c.start <= w.s + 1000 && !c.taken) {
+                      insertChapter(p, c)
+                  }
+              }
             }
         }
         if (w.o === '')
             continue
         let span = document.createElement('span')
+        let codeDetected = false
         if (w.o.indexOf('```') !== -1) {
-          inCode = true
+          codeDetected = true
+          if (!inCode)
+            p.classList.add('code')
+          inCode = !inCode
         } else {
           if (w.o.indexOf('`') === 0) {
               w.o = w.o.substring(1)
@@ -583,7 +587,7 @@ function buildWords(words, r = punctuated) {
               span.classList.add('bold')
           if (w.o.indexOf('`') > 0) {
             inBold = false
-            w.o = w.o.substring(0,w.o.length-1)
+            w.o = w.o.replaceAll('`','')
           }
         }
         span.textContent = w.o + ' '
@@ -599,7 +603,7 @@ function buildWords(words, r = punctuated) {
                     play(span.start)
             })
         }
-        if (p) {
+        if (p && !codeDetected) {
             p.appendChild(span)
         }
     }
@@ -614,35 +618,6 @@ function buildWords(words, r = punctuated) {
             idx += 1
         }
     }
-
-    /*let paragraphs = r.querySelectorAll('p')
-    let inCode = false
-    let lines = []
-    let firstP = null
-    for (let p of paragraphs) {
-      let spans = p.querySelectorAll('span')
-      if (spans.length === 0)
-        continue
-      let line = [...spans].map(s => s.textContent).join('')
-      let isSeparator = spans[0].o === '```'
-      if (isSeparator) {
-          //lines.push(line)
-          inCode = !inCode
-          if (!inCode) {
-            //lines.push(line)
-            console.log(lines)
-            firstP.innerHTML = `<code>` + lines.join('\n') + '</code>'
-            lines = []
-          } else {
-            firstP = p
-          }
-      }
-      if (inCode && !isSeparator) {
-          lines.push(line)
-          if (p !== firstP)
-            p.remove()
-      }
-    }*/
     updateHighlights()
 }
 
@@ -1200,7 +1175,8 @@ async function punctuate(videoId, languageCode = 'en') {
     if (chapters.length === 0)
         chapters = computeChapters(json.description)
     videoDuration = json.duration
-    vtitle.textContent = json.title
+    //vtitle.textContent = json.title
+    vtitle.innerHTML = `<a target="_blank" href="https://www.youtube.com/watch?v=${videoId}">${json.title}</a>`
     vurl.textContent = vurl.href = `https://www.youtube.com/watch?v=${videoId}`
     vduration.textContent = msToTime(videoDuration * 1000)
     
@@ -1251,8 +1227,8 @@ async function punctuate(videoId, languageCode = 'en') {
         punctuated.innerHTML = ''
         window.punctuatedText = punctuatedText
         window.punctuatedTimes = punctuatedTimes
-        punctuated.innerHTML = marked(punctuatedText)
-        //buildWords(punctuatedTimes)
+        //punctuated.innerHTML = marked(punctuatedText)
+        buildWords(punctuatedTimes)
         return
     }
     let promises = []
@@ -1309,9 +1285,7 @@ function scrollToLive() {
     window.scrollTo({ left: 0, top: y, behavior: 'smooth' })
 }
 if (videoid) {
-  vtitle.innerHTML = spin('Fetching video info')
-  summary.innerHTML = spin('Summarizing')
-  punctuate.innerHTML = spin('Cleaning transcripts')
+    punctuate.innerHTML = spin('Cleaning transcripts')
     myform.style.display = 'none'
     tools.style.display = 'flex'
     punctuate(videoid, languageCode)

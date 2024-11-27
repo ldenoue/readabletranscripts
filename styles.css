@@ -326,21 +326,13 @@ form input {
     justify-content: flex-start;
 }
 
-#usageDiv {
-    font-family: monospace;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    background-color: lightgray;
-    font-size: 12px;
-    display: none;
-    padding: 4px 8px;
-}
-
 .selected {
     opacity: 1.0 !important;
 }
 
+.start {
+  align-self: flex-start;
+}
 input[type='color'] {
     width: 200%;
     height: 200%;
@@ -455,12 +447,15 @@ figcaption {
 
 footer {
   width: 100%;
-  font-size: 0.9rem;
   text-align: center;
   position: sticky;
+  display: flex;
+  gap: 8px;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
   padding: 8px;
   top: 100%;
-  opacity: 0.9;
 }
 
 .fixed {
@@ -517,20 +512,26 @@ h2, h1 {
   width: 320px;
 }
 
-#vurl, #vduration {
-  font-size: 0.9rem;
+#vurl {
+  display: none;
 }
-
-code {
+.code, code {
   white-space: pre-wrap;
   font-size: 1rem;
+  font-family: var(--font-name);
   font-weight: 700;
 }
 
+.p.code > .ts {
+  display: none;
+}
 #col2, #col3 {
   padding-top: 80px;
 }
 @media print {
+  #vurl {
+    display: inline-block;
+  }
   .btn, #tools, select {
     display: none;
   }
