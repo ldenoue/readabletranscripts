@@ -1,7 +1,7 @@
 # Scribe - Beautiful YouTube Transcripts with Gemini 1.5 Flash 8B LLM
 
 This repo shows how to fetch the raw YouTube transcripts and use the Gemini Flash 8B API to format them.
-Made by [ldenoue](https://twitter.com/ldenoue)
+Made by [𝕏 ldenoue](https://twitter.com/ldenoue)
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/ldenoue)
 
