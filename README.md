@@ -9,6 +9,8 @@ Made by [@ldenoue](https://twitter.com/ldenoue)
 
 Try the demo at https://ldenoue.github.io/readabletranscripts and type any search term
 
+Try locally `python3 -m http.server` and open `http://localhost:8000`
+
 Set your Gemini API KEY (create a [Free Gemini API Key](https://aistudio.google.com/apikey))
 Note: The key is used https://github.com/ldenoue/readabletranscripts/blob/f5ea5804ed7fb5570be780129c7d21e7a1b367e5/code.js#L159 to fetch Gemini's answers from your browser.
 It is never uploaded anywhere.

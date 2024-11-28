@@ -243,47 +243,6 @@ async function search(q, redirect = true) {
     }
 }
 
-const languages = {
-    ar: "Arabic",
-    bn: "Bengali",
-    bg: "Bulgarian",
-    zh: "Chinese",
-    hr: "Croatian",
-    cs: "Czech",
-    da: "Danish",
-    nl: "Dutch",
-    en: "English",
-    et: "Estonian",
-    fi: "Finnish",
-    fr: "French",
-    de: "German",
-    el: "Greek",
-    iw: "Hebrew",
-    hi: "Hindi",
-    hu: "Hungarian",
-    id: "Indonesian",
-    it: "Italian",
-    ja: "Japanese",
-    ko: "Korean",
-    lv: "Latvian",
-    lt: "Lithuanian",
-    no: "Norwegian",
-    pl: "Polish",
-    pt: "Portuguese",
-    ro: "Romanian",
-    ru: "Russian",
-    sr: "Serbian",
-    sk: "Slovak",
-    sl: "Slovenian",
-    es: "Spanish",
-    sw: "Swahili",
-    sv: "Swedish",
-    th: "Thai",
-    tr: "Turkish",
-    uk: "Ukrainian",
-    vi: "Vietnamese"
-};
-
 function timeout(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -330,17 +289,16 @@ async function getModelAnswer(prompt, maxretry = 4) {
     }
 }
 
-function languageName(lang) {
-    let name = languages[lang]
-    return name ?? 'English'
+function languageName(json, lang) {
+    return json.translationLanguages[lang] || 'English'
 }
 
 const chunkSize = 512 // longer context makes the AI hallucinate more
-async function punctuateText(c, vocab = '', lang = 'en', p = null) {
+async function punctuateText(json, c, vocab = '', lang = 'en', p = null) {
     const prompt = `
   - fix the grammar and typos of the given video text transcript
   - do not rephrase: keep the original wording but fix errors
-  - write in the ${languageName(lang)} language
+  - write in the ${languageName(json, lang)} language
   - please add paragraphs where appropriate
   - do not add paragraphs numbers
   - use this list of words as context to help you fix typos: """${vocab}""""
@@ -359,8 +317,8 @@ async function punctuateText(c, vocab = '', lang = 'en', p = null) {
     })
 }
 
-async function mergeSentences(a, b, vocab, languageCode = 'en') {
-    let res = await punctuateText(clean(a) + ' ' + clean(b), vocab, languageCode, `please fix this sentence, without paragraphrasing, write in ${languageName(languageCode)}: `)
+async function mergeSentences(json, a, b, vocab, languageCode = 'en') {
+    let res = await punctuateText(json, clean(a) + ' ' + clean(b), vocab, languageCode, `please fix this sentence, without paragraphrasing, write in ${languageName(json, languageCode)}: `)
     res = res.replace(/\s+/g, ' ')
     return res
 }
@@ -929,7 +887,7 @@ async function getSummary(json, videoId, transcript, languageCode = 'en', vocab)
     const summaryPrompt = `
   - write a very short summary of the following video transcript
   - use this list of dictionary words: """${vocab}"""
-  - write the summary in ${languageName(languageCode)}
+  - write the summary in ${languageName(json, languageCode)}
   - answer in plain text without mentioning the language
   Transcript to summarize:
   """${transcript}"""`
@@ -1104,7 +1062,6 @@ async function getLocal(videoId, languageCode = 'en') {
     obj.translationLanguages = translationLanguages
     const languageCodes = Object.keys(transcripts)
     obj.defaultLanguage = defaultLanguage ?? 'en'
-    //selectedLanguage = languages[languageCode]
     for (let languageCode in transcripts) {
         const chunks = await getChunks(transcripts[languageCode])
         obj[languageCode] = { chunks }
@@ -1254,7 +1211,7 @@ async function punctuate(videoId, languageCode = 'en') {
     let promises = []
     let i = 0
     for (let c of chunks) {
-        let p = punctuateText(c, vocab, languageCode)
+        let p = punctuateText(json, c, vocab, languageCode)
         promises.push(p)
     }
     let res = await Promise.all(promises);
@@ -1280,7 +1237,7 @@ async function punctuate(videoId, languageCode = 'en') {
             b.paragraph = t.paragraph
         }
         parts.push({ left: a.paragraph, right: b.paragraph })
-        let merged = mergeSentences(a.end, b.start, vocab, languageCode)
+        let merged = mergeSentences(json, a.end, b.start, vocab, languageCode)
         merges.push(merged)
     }
     let fragments = await Promise.all(merges)
