@@ -1311,6 +1311,7 @@ if (videoId) {
     myform.style.display = 'none'
     tools.style.display = 'flex'
     punctuate(videoId, languageCode)
+    container.style.display = 'block'
 } else {
     const examples = ['R6F3T3Bykqg.json','S53BanCP14c.json','U_GFmEgUxXo.json','p9Q5a1Vn-Hk.json']
     const jsonItems = []
