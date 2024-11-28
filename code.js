@@ -1338,10 +1338,10 @@ function startObserving() {
       entries.forEach((entry) => {
         if (!entry.isIntersecting) {
           target.classList.add('fixed')
-          //summary.style.display = 'none'
+          summary.style.display = 'none'
         } else {
           target.classList.remove('fixed')
-          //summary.style.display = 'unset'
+          summary.style.display = 'unset'
         }
       });
     },

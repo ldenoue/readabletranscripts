@@ -42,7 +42,9 @@
     </div>
     <div id="container" class="row">
       <div class="column" id="col1">
-        <h2><a href="/readabletranscripts"><i class="btn fa-solid fa-home"></i></a></h2>
+        <h2>
+          <a href="/readabletranscripts"><i class="btn fa-solid fa-home"></i></a>
+        </h2>
         <b id="vtitle"></b>
         <a id="vurl" target="_blank" href=""></a>
         <div class="flexrow start"><span id="vduration"></span> <span id="usageDiv"></span></div>
@@ -51,7 +53,6 @@
           <div id="playercontainer">
             <div id="player"></div>
           </div>
-          <div class="flexrow"><select id="selectLanguage"></select></div>
           <img id="thumb">
           <div id="summary"></div>
         </div>
@@ -86,6 +87,7 @@
     <div class="btn" id="downloadBtn" title="Save JSON">
       <i class="fa-solid fa-download"></i>
     </div>
+    <div class="flexrow bg"><select id="selectLanguage"></select></div>
   </div>
 <script src="./localforage.min.js"></script>
 <script src="./localforage-getitems.js"></script>

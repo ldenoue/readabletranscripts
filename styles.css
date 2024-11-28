@@ -472,6 +472,17 @@ footer {
   top: 16px;
 }
 
+#selectLanguage {
+  max-width: 160px;
+  background-color: transparent;
+  border: 0;
+  color: white;
+}
+.bg {
+  background-color: var(--byellow);
+  padding: 16px;
+  border-radius: 50rem;
+}
 @media (orientation: portrait) {
   .fixed {
     left: 0;
