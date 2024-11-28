@@ -14,7 +14,7 @@ let chapters = []
 let jumped = null
 let currentCaption = ['Click to play']
 let userJumps = false
-let videoid = params.get('id') || params.get('v')
+let videoId = params.get('id') || params.get('v')
 let highlights = []
 let ytPlayer = null
 
@@ -112,7 +112,7 @@ function audioTimeUpdate(timeSeconds) {
                 w.classList.remove('highlighted')
         }
     }
-    /*currentCaption = [...punctuated.querySelectorAll('.highlighted')].map(a => a.textContent)
+    /*currentCaption = [...punctuatedDiv.querySelectorAll('.highlighted')].map(a => a.textContent)
     if (currentCaption.length === 0 && !isPlaying())
         currentCaption = ['Click to Play']
     console.log(currentCaption)*/
@@ -219,6 +219,17 @@ function spin(text = '') {
   return `<div class="simplerow"><i class="spinner fa-solid fa-circle-notch"></i> ${text}</div>`
 }
 
+function displayItems(jsonItems) {
+  items.innerHTML = ''
+  for (let item of jsonItems) {
+      let d = document.createElement('div')
+      d.className = 'r'
+      d.innerHTML = `<a href="./?id=${item.id || item.videoId}"><img src="https://img.youtube.com/vi/${item.id || item.videoId}/mqdefault.jpg"></a><div><a href="?id=${item.id || item.videoId}">${item.name || item.title}</a><div>${item.duration} - ${item.publishedTimeText || item.published || new Date(item.publishDate).toLocaleDateString()}</div></div><br>`
+      items.appendChild(d)
+  }
+  items.style.display = 'flex'
+}
+
 async function search(q, redirect = true) {
   if (redirect)
     window.location.href = '/?q=' + encodeURIComponent(q)
@@ -226,15 +237,9 @@ async function search(q, redirect = true) {
   items.innerHTML = spin('Searching')
   let json = await ytsr(q)
     if (json.error)
-        items.innerHTML = 'Error:' + json.error
+        items.innerHTML = 'Error: ' + json.error
     else if (json.items) {
-        items.innerHTML = ''
-        for (let item of json.items) {
-            let d = document.createElement('div')
-            d.className = 'r'
-            d.innerHTML = `<a href="?id=${item.id}"><img src="https://img.youtube.com/vi/${item.id}/mqdefault.jpg"></a><div><a href="?id=${item.id}">${item.name || item.title}</a><div>${item.duration} - ${item.publishedTimeText || item.published}</div></div><br>`
-            items.appendChild(d)
-        }
+        displayItems(json.items)
     }
 }
 
@@ -298,6 +303,11 @@ function formatPrice(price) {
 }
 
 async function getModelAnswer(prompt, maxretry = 4) {
+    if (!API_KEY) {
+      summary.innerHTML = '<p>Please set your API KEY on the <a href="/readabletranscripts">home page</a><p>'
+      return null
+    }
+
     for (let i = 0; i < maxretry; i++) {
         try {
             let res = await model.generateContent([prompt])
@@ -388,10 +398,10 @@ function getWords(text) {
 function prepareWords(chunks) {
     let res = []
     for (let c of chunks) {
-        let len = c.text.length
+        let len = c.cleanText.length
         let start = c.start
         let end = c.start + c.dur
-        let words = getWords(c.original)
+        let words = getWords(c.text)
         let dur = end - start
         if (words.length > 0) {
             for (let w of words) {
@@ -527,7 +537,7 @@ function msToTime(duration) {
     }
     return minutes + ":" + seconds
 }
-function buildWords(words, r = punctuated) {
+function buildWords(words, r = punctuatedDiv) {
     let p = null
     let end = false
     let inBold = false
@@ -629,7 +639,6 @@ function pause() {
   ytPlayer ? ytPlayer.pauseVideo() === 1 : realplayer.pause()
 }
 function play(start) {
-    console.log('play', start)
     const playing = isPlaying()
     if (!playing || start !== lastStart) {
         ytPlayer ? ytPlayer.seekTo(start / 1000, /* allowSeekAhead */ true) : realplayer.currentTime = start / 1000
@@ -644,12 +653,11 @@ function play(start) {
 function keepCharacters(t) {
     return t.trim().toLowerCase().replace(/\W+/g, '')
 }
-function createChunks(chunks) {
+function createChunks(original) {
+    const chunks = JSON.parse(JSON.stringify(original))
     chunks.forEach((c, idx) => {
-        let o = c.text
-        c.original = o
         c.taken = false
-        c.text = keepCharacters(o)
+        c.cleanText = keepCharacters(c.text)
         c.end = c.start + c.dur
         if (idx > 0 && c.start < chunks[idx - 1].end) {
             chunks[idx - 1].end = c.start
@@ -735,21 +743,23 @@ async function convertAudioFromUrlToBase64(url) {
     }
 }
 
-async function createVocabulary(videoId, description = '', languageCode = 'en') {
-    const key = languageCode + '-vocab-' + videoId
-    const prevVocab = await localforage.getItem(key)
-    if (prevVocab) {
+async function createVocabulary(json, videoId, description = '', languageCode = 'en') {
+    if (json && json[languageCode] && json[languageCode].vocabulary) {
         console.log('cached vocab')
-        return prevVocab
+        return json[languageCode].vocabulary
     }
     if (!description || description.trim().length === 0)
         return ''
     let res = await getModelAnswer(`Return important words including names from this description and return as a simple list separated by commas: ${description}`)
     if (!res)
         return ''
-    let vocab = res.response.text().replace(/\s+/g, ' ')
-    localforage.setItem(key, vocab)
-    return vocab
+    let vocabulary = res.response.text().replace(/\s+/g, ' ')
+    if (json[languageCode])
+      json[languageCode].vocabulary = vocabulary
+    else
+      json[languageCode] = { vocabulary }
+    localforage.setItem(videoId, json)
+    return vocabulary
 }
 
 function addHighlight(evt) {
@@ -767,7 +777,7 @@ function addHighlight(evt) {
     }
 }
 function updateHighlights() {
-    let r = punctuated
+    let r = punctuatedDiv
     let paragraphs = r.querySelectorAll('p')
     for (let h of highlights) {
         if (h.start === null || h.end === null || h.start === undefined || h.end === undefined)
@@ -898,7 +908,7 @@ function roundRect(ctx, x, y, width, height, radius) {
 }
 
 function findCaptionAt(time) {
-    let p = punctuated.querySelectorAll('span')
+    let p = punctuatedDiv.querySelectorAll('span')
     let res = []
     const delta = 1000
     for (let w of p) {
@@ -911,28 +921,30 @@ function findCaptionAt(time) {
     return res
 }
 
-async function getSummary(videoId, transcript, lang = 'en', vocab) {
-    const key = [lang, 'sum', videoId].join('-')
-    let d = await localforage.getItem(key)
-    if (d) {
+async function getSummary(json, videoId, transcript, languageCode = 'en', vocab) {
+    if (json && json[languageCode] && json[languageCode].summary) {
         console.log('cached summary')
-        return d
+        return json[languageCode].summary
     }
     const summaryPrompt = `
   - write a very short summary of the following video transcript
   - use this list of dictionary words: """${vocab}"""
-  - write the summary in ${languageName(lang)}
+  - write the summary in ${languageName(languageCode)}
   - answer in plain text without mentioning the language
   Transcript to summarize:
   """${transcript}"""`
     const result = await getModelAnswer(summaryPrompt)
     if (!result)
         return ''
-    let summaryText = result.response.text()
-    if (summaryText.indexOf(lang) === 0)
-        summaryText = summaryText.substring(lang.length)
-    localforage.setItem(key, summaryText)
-    return summaryText
+    let summary = result.response.text()
+    if (summary.indexOf(languageCode) === 0)
+        summary = summaryText.substring(languageCode.length)
+    if (json[languageCode])
+        json[languageCode].summary = summary
+    else
+        json[languageCode] = { summary }
+    localforage.setItem(videoId, json)
+    return summary
 }
 let vw = 0
 let vh = 0
@@ -1026,6 +1038,18 @@ async function getLocal(videoId, languageCode = 'en') {
     const data = await getUserData(videoId)
     if (data && data[languageCode]) {
         return data
+    }
+    try {
+      const remoteData = await fetchData('./examples/' + videoId + '.json', true)
+      if (remoteData) {
+        if (!remoteData[languageCode]) {
+          languageCode = 'en'
+        }
+        console.log('remoteData',remoteData)
+        return remoteData
+      }
+    } catch (e) {
+      console.log('remote not found, getting video info from client', e)
     }
     const payload = {
         videoId,
@@ -1138,11 +1162,15 @@ function unescapeXml(escapedXml, parser) {
     return doc.documentElement.textContent;
 }
 async function fetchData(url, json = false) {
+  try {
     const response = await fetch(url)
     if (json)
         return await response.json()
     else
         return await response.text()
+  } catch (e) {
+    return null
+  }
 }
 
 async function getChunks(url) {
@@ -1154,14 +1182,14 @@ async function getChunks(url) {
     }
 }
 
-async function computeSummary(videoid, transcript, languageCode, vocab) {
-  const summaryText = await getSummary(videoid, transcript, languageCode, vocab)
+async function computeSummary(json, videoid, transcript, languageCode, vocab) {
+  const summaryText = await getSummary(json, videoid, transcript, languageCode, vocab)
   summary.innerHTML = marked(summaryText)
 }
 
 function showError(msg) {
   summary.textContent = ''
-  punctuated.textContent = msg
+  punctuatedDiv.textContent = msg
 }
 
 async function punctuate(videoId, languageCode = 'en') {
@@ -1197,37 +1225,29 @@ async function punctuate(videoId, languageCode = 'en') {
       selectLanguage.appendChild(option)
     }
     selectLanguage.onchange = () => window.location.href = '/?id=' + videoId + '&language=' + selectLanguage.value
+
     await localforage.setItem(videoId, json)
-    json.chunks = json[languageCode].chunks
-    json.text = json.chunks.map(c => c.text).join(' ')
-    let transcript = json.text
+    const transcript = json[languageCode].chunks.map(c => c.text).join(' ')
     const videoTitle = json.title || ''
     const videoDescription = json.description || ''
 
-    if (!API_KEY) {
-      summary.innerHTML = '<p>Please set your API KEY on the <a href="/">home page</a><p>'
-      return
-    }
-    let wordTimes = prepareWords(createChunks(json.chunks))
-    let originalChunks = chunkText(json.text, 64)
-    let originalWithParagraphs = originalChunks.join('\n')
-    let punctuatedOriginalTimes = testDiff(wordTimes, originalWithParagraphs)
-    buildWords(punctuatedOriginalTimes, original)
-    const vocab = await createVocabulary(videoid, videoTitle + ' ' + videoDescription, languageCode)
-    computeSummary(videoid, transcript, languageCode, vocab)
-    punctuated.innerHTML = '<p>' + spin('Transcribing...') + '</p>'
+    const wordTimes = prepareWords(createChunks(json[languageCode].chunks))
+    const originalWithParagraphs = chunkText(transcript, 64).join('\n')
+    const alignedOriginalTimes = testDiff(wordTimes, originalWithParagraphs)
+    buildWords(alignedOriginalTimes, originalDiv)
+    const vocab = await createVocabulary(json, videoId, videoTitle + ' ' + videoDescription, languageCode)
+    computeSummary(json, videoId, transcript, languageCode, vocab)
+    punctuatedDiv.innerHTML = '<p>' + spin('Transcribing...') + '</p>'
     let startTime = Date.now()
     let chunks = chunkText(transcript, chunkSize)
     console.log('n chunks=', chunks.length)
-    const puncKey = languageCode + '-punc-' + videoId
-    const prevPunctuatedText = await localforage.getItem(puncKey)
-    if (prevPunctuatedText) {
-        let punctuatedText = prevPunctuatedText
+    const cachedPunctuatedText = json[languageCode].punctuatedText
+    if (cachedPunctuatedText) {
+        console.log('cached punctuatedText')
+        usageDiv.textContent = 'Used cached data (no cost)'
+        let punctuatedText = cachedPunctuatedText
         let punctuatedTimes = testDiff(wordTimes, punctuatedText)
-        punctuated.innerHTML = ''
-        window.punctuatedText = punctuatedText
-        window.punctuatedTimes = punctuatedTimes
-        //punctuated.innerHTML = marked(punctuatedText)
+        punctuatedDiv.innerHTML = ''
         buildWords(punctuatedTimes)
         return
     }
@@ -1239,13 +1259,14 @@ async function punctuate(videoId, languageCode = 'en') {
     }
     let res = await Promise.all(promises);
     if (res.length === 0) {
-        punctuated.innerHTML = 'No transcript was found'
+        punctuatedDiv.innerHTML = 'No transcript was found'
         return
     } else if (res.length === 1) {
         let punctuatedText = res[0]
-        localforage.setItem(puncKey, punctuatedText)
+        json[languageCode].punctuatedText = punctuatedText
+        localforage.setItem(videoId, json)
         let punctuatedTimes = testDiff(wordTimes, punctuatedText)
-        punctuated.innerHTML = ''
+        punctuatedDiv.innerHTML = ''
         buildWords(punctuatedTimes)
         return
     }
@@ -1268,28 +1289,38 @@ async function punctuate(videoId, languageCode = 'en') {
         punctuatedText += ' ' + fragments[i] + ' ' + parts[i].right
     }
     punctuatedText = punctuatedText.replace(/,\s+/g, ', ')
-    localforage.setItem(puncKey, punctuatedText)
+    json[languageCode].punctuatedText = punctuatedText
+    localforage.setItem(videoId, json)
     let endTime = Date.now()
     console.log('duration=', endTime - startTime, json.duration)
     let punctuatedTimes = testDiff(wordTimes, punctuatedText)
-    punctuated.innerHTML = ''
+    punctuatedDiv.innerHTML = ''
     buildWords(punctuatedTimes)
 }
 
 let videoDuration = 0
 function scrollToLive() {
-    let p = punctuated.querySelector('.livep')
+    let p = punctuatedDiv.querySelector('.livep')
     if (!p)
         return
     let y = p.getBoundingClientRect().top + window.pageYOffset - player.offsetHeight
     window.scrollTo({ left: 0, top: y, behavior: 'smooth' })
 }
-if (videoid) {
+if (videoId) {
     punctuate.innerHTML = spin('Cleaning transcripts')
     myform.style.display = 'none'
     tools.style.display = 'flex'
-    punctuate(videoid, languageCode)
+    punctuate(videoId, languageCode)
 } else {
+    const examples = ['R6F3T3Bykqg.json','S53BanCP14c.json','U_GFmEgUxXo.json','p9Q5a1Vn-Hk.json']
+    const jsonItems = []
+    for (let e of examples) {
+      let res = await fetchData('./examples/' + e, true)
+      if (res) {
+        jsonItems.push(res)
+      }
+    }
+    displayItems(jsonItems)
     container.style.display = 'none'
 }
 myform.addEventListener('submit', (evt) => {
@@ -1329,6 +1360,18 @@ function startObserving() {
 
 // This will make the player fixed when the marker above it leaves the viewport
 startObserving()
+
+downloadBtn.onclick = async () => {
+  const json = await localforage.getItem(videoId)
+  const blob = new Blob([JSON.stringify(json)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a')
+  link.download = videoId + '.json'
+  link.href = url
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
 
 let searchTerm = params.get('q')
 if (searchTerm > '') {

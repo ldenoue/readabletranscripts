@@ -528,6 +528,11 @@ h2, h1 {
 #col2, #col3 {
   padding-top: 80px;
 }
+
+#usageDiv, #vduration {
+  font-size: 0.9rem
+}
+
 @media print {
   #vurl {
     display: inline-block;
@@ -568,4 +573,8 @@ h2, h1 {
 
 .bold {
   font-weight: bolder;
+}
+
+#downloadBtn {
+  display: none; /* used to download JSON to cache them */
 }
