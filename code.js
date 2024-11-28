@@ -11,7 +11,7 @@ if (API_KEY) {
 const params = new URLSearchParams(window.location.search)
 const languageCode = params.get('language') || 'en'
 const followingAudio = true
-
+const chapterDelta = 1000
 let chapters = []
 let jumped = null
 let currentCaption = ['Click to play']
@@ -451,7 +451,8 @@ function insertPlaceholderChapter(p) {
 function makeChapterContent(c) {
     if (!c || !c.text)
         return ''
-    let text = c.text.replace(/(\(?(?:https?|ftp):\/\/[\n\S]+\)?)/g, '').trim()
+    const text = c.text.replace(/https?:\/\/(?:www\.)?([^\/?#]+).*/g, '$1');
+
     return `<div class="headername">${text}</div>`
 }
 
@@ -502,7 +503,7 @@ function buildWords(words, r = punctuatedDiv) {
     let end = false
     let inBold = false
     let inCode = false
-    const chapterDelta = 6000
+
     for (let w of words) {
         if (w.o === '.')
             continue
@@ -614,6 +615,25 @@ function buildWords(words, r = punctuatedDiv) {
         }
     }
     updateHighlights()
+
+    if (r === punctuatedDiv) {
+      let headers = r.querySelectorAll('.header')
+      for (let c of headers) {
+        let div = document.createElement('div')
+        div.className = 'tocitem'
+        div.innerHTML = `<div class="tocitemtitle">${c.textContent}</div><div>${msToTime(c.start)}</div>`
+        div.start = c.start
+        div.title = c.textContent
+        div.onclick = (evt) => {
+          evt.preventDefault()
+          evt.stopPropagation()
+          toggleToc()
+          play(div.start)
+          c.scrollIntoView()
+        }
+        toc.appendChild(div)
+      }
+    }
 }
 
 function isPlaying() {
@@ -677,7 +697,7 @@ function computeChapters(description) {
             let text = l.replace(reg, '') // https://www.youtube.com/watch?v=SOxYgUIVq6g captions at the end
             if (text.indexOf('- ') === 0)
                 text = text.substring(2)
-            text = text.replace(/[_\-:–]+/g, '').trim()
+            text = text.replace(/[_\-–]+/g, '').trim()
             if (text.length === 0 && lineNumber < lines.length - 1 && !lines[lineNumber + 1].match(reg))
                 text = lines[lineNumber + 1].trim()
             res.push({ text, start })
@@ -706,26 +726,6 @@ function parseYTChapters(chapters) {
         res.push({ text, start })
     }
     return res
-}
-async function convertAudioFromUrlToBase64(url) {
-    try {
-        const response = await fetch(url);
-        const blob = await response.blob();
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const res = reader.result
-                const prefix = ';base64,'
-                const idx = res.indexOf(prefix)
-                resolve(res.substring(idx + prefix.length));
-            };
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-
-        });
-    } catch (error) {
-        console.error('Error fetching audio or converting to base64:', error);
-    }
 }
 
 async function createVocabulary(json, videoId, description = '', languageCode = 'en') {
@@ -1330,15 +1330,18 @@ keyBtn.onclick = () => {
 } 
 
 function startObserving() {
-  const target = document.getElementById("playercontainer");
-  const marker = document.getElementById("marker");
+  //const target = document.getElementById('playercontainer')
+  const target = document.getElementById('dd')
+  const marker = document.getElementById('marker')
   const observer = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
         if (!entry.isIntersecting) {
-          target.classList.add("fixed");
+          target.classList.add('fixed')
+          //summary.style.display = 'none'
         } else {
-          target.classList.remove("fixed");
+          target.classList.remove('fixed')
+          //summary.style.display = 'unset'
         }
       });
     },
@@ -1350,8 +1353,14 @@ function startObserving() {
   observer.observe(marker);
 }
 
+function toggleToc() {
+  toc.classList.toggle('opened')
+}
 // This will make the player fixed when the marker above it leaves the viewport
 startObserving()
+
+tocBtn.onclick = toggleToc
+toc.onclick = toggleToc
 
 downloadBtn.onclick = async () => {
   const json = await localforage.getItem(videoId)

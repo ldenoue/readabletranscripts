@@ -47,12 +47,14 @@
         <a id="vurl" target="_blank" href=""></a>
         <div class="flexrow start"><span id="vduration"></span> <span id="usageDiv"></span></div>
         <div id="marker"></div>
-        <div id="playercontainer">
-          <div id="player"></div>
+        <div id="dd">
+          <div id="playercontainer">
+            <div id="player"></div>
+          </div>
+          <div class="flexrow"><select id="selectLanguage"></select></div>
+          <img id="thumb">
+          <div id="summary"></div>
         </div>
-        <div class="flexrow"><select id="selectLanguage"></select></div>
-        <img id="thumb">
-        <div id="summary"></div>
       </div>
       <div class="column" id="col2">
         <div class="info">LLM-corrected transcript</div>
@@ -65,17 +67,23 @@
       </div>
     </div>
   </div>
+  <div id="toc">
+    <h2>Chapters</h2>
+  </div>
   <footer id="footer">
     Created by <a href="https://twitter.com/ldenoue">@ldenoue</a> Discuss on <a href="https://news.ycombinator.com/item?id=42238890">Hacker News</a>
   </footer>
   <div id="tools">
-    <div class="btn" id="highlighter" title="Highlight text" alt="Highlight text">
+    <div class="btn" id="tocBtn" title="Show chapters">
+      <i class="fa-solid fa-list"></i>
+    </div>
+    <div class="btn" id="highlighter" title="Highlight text">
       <i class="fa-solid fa-pencil"></i>
     </div>
     <a title="Print" href="#" class="btn" id="pdfBtn">
       <i class="fa-solid fa-file-pdf"></i>
     </a>
-    <div class="btn" id="downloadBtn" title="Save JSON" alt="SaveJSON">
+    <div class="btn" id="downloadBtn" title="Save JSON">
       <i class="fa-solid fa-download"></i>
     </div>
   </div>

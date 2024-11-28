@@ -161,10 +161,9 @@ input[type=color] {
 
 .header {
     font-weight: bold;
-    font-size: 1.5rem;
+    font-size: 1.2rem;
     font-family: var(--font-name);
     line-height: 1.2;
-    text-transform: capitalize;
     margin-top: 32px;
     max-width: fit-content;
 }
@@ -188,13 +187,14 @@ div.video-annotations {
 
 #tools {
   position: fixed;
-  right: 10px;
+  left: 10px;
   bottom: 10px;
   display: none;
   flex-direction: row;
   gap: 8px;
   justify-content: center;
   align-items: center;
+  z-index: 3;
 }
 .btn {
   font-size: 24px;
@@ -545,8 +545,8 @@ h2, h1 {
   #vurl {
     display: inline-block;
   }
-  .btn, #tools, select {
-    display: none;
+  .btn, #tools, select, #toc {
+    display: none!important;
   }
   #thumb {
     display: block;
@@ -562,6 +562,7 @@ h2, h1 {
     }
     #col1, #col2 {
         width: 100%;
+        padding-top: 0;
     }
     #col3 {
         display: none;
@@ -581,4 +582,71 @@ h2, h1 {
 
 .bold {
   font-weight: bolder;
+}
+
+#toc {
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background-color: white;
+  width: 400px;
+  max-width: 100vw;
+  padding: 16px 0;
+  z-index: 2;
+  display: flex;
+  gap: 8px;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: flex-start;
+  transition: transform 0.3s ease-in-out;
+  transform: translateX(-100%);
+  background-color: #f1f1f1;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-bottom: 64px; /* room to see the last item because of #tools */
+}
+
+.opened {
+  transform: translateX(0%)!important;
+}
+
+.tocitem {
+  cursor: pointer;
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  padding: 0 16px;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.tocitem:nth-child(odd) {
+  background-color: white;
+}
+
+.tocitem:nth-child(even) {
+  background-color: transparent;
+}
+
+.tocitem:hover {
+  font-weight: 450;
+}
+.tocitemtitle {
+  display: -webkit-box; /* Enables the flexbox-based layout for text clamping */
+  -webkit-line-clamp: 2; /* Specifies the number of lines to display */
+  -webkit-box-orient: vertical; /* Sets the box orientation to vertical */
+  overflow: hidden; /* Ensures content beyond the specified lines is hidden */
+  text-overflow: ellipsis; /* Adds ellipsis if the text overflows */
+}
+
+#downloadBtn {
+  display: none;
+}
+
+#dd {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
