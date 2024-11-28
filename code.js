@@ -1,5 +1,7 @@
-import { marked } from "https://esm.run/marked";
-import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
+import { marked } from "https://esm.run/marked"
+import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai"
+//import Autolinker from 'https://cdn.jsdelivr.net/npm/autolinker@4.0.0/+esm'
+//const autolinker = new Autolinker({ newWindow: true })
 
 const API_KEY = window.localStorage.API_KEY
 if (API_KEY) {
@@ -382,7 +384,6 @@ function testDiff(wordTimes = [], punctuated = '') {
 
     let othera = getWords(punctuated)
     let other = othera.map(w => w.w).join('\n') + '\n'
-
     let map = []
     let diff = Diff.diffLines(one, other);
     let source = 0
@@ -496,16 +497,18 @@ function msToTime(duration) {
     return minutes + ":" + seconds
 }
 function buildWords(words, r = punctuatedDiv) {
+    chapters.forEach(c => c.taken = false)
     let p = null
     let end = false
     let inBold = false
     let inCode = false
+    const chapterDelta = 6000
     for (let w of words) {
         if (w.o === '.')
             continue
         if (end) {
             for (let c of chapters) {
-                if (!c.taken && c.start <= w.s + 1000 && !c.taken) {
+                if (!c.taken && c.start <= (w.s + chapterDelta) && !c.taken) {
                     w.p = true
                 }
             }
@@ -531,7 +534,7 @@ function buildWords(words, r = punctuatedDiv) {
               }
               r.appendChild(p)
               for (let c of chapters) {
-                  if (c.start <= w.s + 1000 && !c.taken) {
+                  if (c.start <= (w.s + chapterDelta) && !c.taken) {
                       insertChapter(p, c)
                   }
               }
@@ -541,6 +544,10 @@ function buildWords(words, r = punctuatedDiv) {
             continue
         let span = document.createElement('span')
         let codeDetected = false
+        if (w.o.match(/^\*(.*)\*/)) {
+          w.o = w.o.replaceAll('*','')
+          span.classList.add('bold')
+        }
         if (w.o.indexOf('```') !== -1) {
           codeDetected = true
           if (!inCode)
@@ -551,25 +558,45 @@ function buildWords(words, r = punctuatedDiv) {
               w.o = w.o.substring(1)
               inBold = true
           }
+          if (w.o.indexOf('**') === 0) {
+            w.o = w.o.substring(2)
+            inBold = true
+          }
           if (inBold)
               span.classList.add('bold')
           if (w.o.indexOf('`') > 0) {
             inBold = false
             w.o = w.o.replaceAll('`','')
           }
+          if (w.o.indexOf('**') > 0) {
+            inBold = false
+            w.o = w.o.replaceAll('**','')
+          }
         }
-        span.textContent = w.o + ' '
+        const caption = w.o + ' '
+        const addPlay = true
+        /*const html = autolinker.link(w.o) + ' '
+        let addPlay = true
+        if (html !== caption) {
+          addPlay = false
+          span.innerHTML = autolinker.link(w.o) + ' '
+        } else {
+          span.textContent = caption
+        }*/
+        span.textContent = caption
         if (w.s !== undefined) {
             span.o = w.o
             span.start = w.s
             span.end = w.e
-            span.addEventListener('click', (evt) => {
-                absorb(evt)
-                if (span.classList.contains('highlighted'))
-                    pause()
-                else
-                    play(span.start)
-            })
+            if (addPlay) {
+              span.addEventListener('click', (evt) => {
+                  absorb(evt)
+                  if (span.classList.contains('highlighted'))
+                      pause()
+                  else
+                      play(span.start)
+              })
+            }
         }
         if (p && !codeDetected) {
             p.appendChild(span)
@@ -1050,9 +1077,14 @@ async function getLocal(videoId, languageCode = 'en') {
     if (json.error || json.videoDetails === undefined)
         return { error: 'invalid video' }
     obj.videoId = json.videoDetails.videoId
-    obj.chapters = json.videoDetails.chapters
     obj.title = json.videoDetails.title
     obj.description = json.videoDetails.shortDescription
+
+    let chapters = json.videoDetails.chapters
+    chapters = parseYTChapters(chapters) ?? []
+    if (chapters.length === 0)
+        chapters = computeChapters(obj.description)
+    obj.chapters = chapters
     obj.viewCount = json.videoDetails.viewCount
     obj.duration = parseInt(json.videoDetails.lengthSeconds)
     if (json.microformat && json.microformat.playerMicroformatRenderer)
@@ -1151,16 +1183,17 @@ function showError(msg) {
 
 async function punctuate(videoId, languageCode = 'en') {
     let json = await getLocal(videoId, languageCode)
+    window.json = json
     if (json.error) {
         container.style.display = 'none'
         items.innerHTML = '<b>No transcript for this video</b>'
         return
     }
-    chapters = parseYTChapters(json.chapters) ?? []
-    if (chapters.length === 0)
-        chapters = computeChapters(json.description)
+    if (!json.chapters) {
+      json.chapters = []
+    }
+    chapters = JSON.parse(JSON.stringify(json.chapters))
     videoDuration = json.duration
-    //vtitle.textContent = json.title
     vtitle.innerHTML = `<a target="_blank" href="https://www.youtube.com/watch?v=${videoId}">${json.title}</a>`
     vurl.textContent = vurl.href = `https://www.youtube.com/watch?v=${videoId}`
     vduration.textContent = msToTime(videoDuration * 1000)
@@ -1196,8 +1229,6 @@ async function punctuate(videoId, languageCode = 'en') {
     computeSummary(json, videoId, transcript, languageCode, vocab)
     punctuatedDiv.innerHTML = '<p>' + spin('Transcribing...') + '</p>'
     let startTime = Date.now()
-    let chunks = chunkText(transcript, chunkSize)
-    console.log('n chunks=', chunks.length)
     const cachedPunctuatedText = json[languageCode].punctuatedText
     if (cachedPunctuatedText) {
         console.log('cached punctuatedText')
@@ -1208,6 +1239,9 @@ async function punctuate(videoId, languageCode = 'en') {
         buildWords(punctuatedTimes)
         return
     }
+    let chunks = chunkText(transcript, chunkSize)
+    console.log('n chunks=', chunks.length)
+  
     let promises = []
     let i = 0
     for (let c of chunks) {
