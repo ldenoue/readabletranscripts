@@ -473,14 +473,19 @@ footer {
 }
 
 #selectLanguage {
-  max-width: 160px;
+  max-width: 100px;
   background-color: transparent;
   border: 0;
   color: white;
+  white-space: nowrap; /* Prevent text wrapping */
+  text-overflow: ellipsis; /* Add ellipsis to truncated text */
+  overflow: hidden;
+  outline: none;
 }
 .bg {
   background-color: var(--byellow);
-  padding: 16px;
+  height: 48px;
+  padding: 0 16px;
   border-radius: 50rem;
 }
 @media (orientation: portrait) {

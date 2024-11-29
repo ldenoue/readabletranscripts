@@ -1026,11 +1026,7 @@ async function getLocal(videoId, languageCode = 'en') {
     }
     try {
       const remoteData = await fetchData('./examples/' + videoId + '.json', true)
-      if (remoteData) {
-        if (!remoteData[languageCode]) {
-          languageCode = 'en'
-        }
-        console.log('remoteData',remoteData)
+      if (remoteData && remoteData[languageCode]) {
         return remoteData
       }
     } catch (e) {
