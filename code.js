@@ -631,7 +631,11 @@ function createToc(chapters) {
         toggleToc()
         play(div.start)
         let header = Array.from(document.querySelectorAll('.header')).find(h => h.start === div.start)
-        header?.scrollIntoView()
+        if (header) {
+          let topPosition = window.scrollY + header.getBoundingClientRect().top - playercontainer.offsetHeight - 16
+          console.log('topPosition=',topPosition)
+          window.scrollTo({left: 0, top: topPosition, behavior: 'smooth'})
+        }
       }
       toc.appendChild(div)
     }
