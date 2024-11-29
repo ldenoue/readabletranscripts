@@ -234,7 +234,7 @@ function displayItems(jsonItems) {
 
 async function search(q, redirect = true) {
   if (redirect)
-    window.location.href = '/?q=' + encodeURIComponent(q)
+    window.location.href = './?q=' + encodeURIComponent(q)
   items.style.display = 'flex'
   items.innerHTML = spin('Searching')
   let json = await ytsr(q)
@@ -265,7 +265,7 @@ function formatPrice(price) {
 
 async function getModelAnswer(prompt, maxretry = 4) {
     if (!API_KEY) {
-      summary.innerHTML = '<p>Please set your API KEY on the <a href="/readabletranscripts">home page</a><p>'
+      summary.innerHTML = '<p>Please set your API KEY on the <a href="./">home page</a><p>'
       return null
     }
 
@@ -1214,7 +1214,7 @@ async function punctuate(videoId, languageCode = 'en') {
       option.selected = l === languageCode
       selectLanguage.appendChild(option)
     }
-    selectLanguage.onchange = () => window.location.href = '/?id=' + videoId + '&language=' + selectLanguage.value
+    selectLanguage.onchange = () => window.location.href = './?id=' + videoId + '&language=' + selectLanguage.value
 
     await localforage.setItem(videoId, json)
     const transcript = json[languageCode].chunks.map(c => c.text).join(' ')
