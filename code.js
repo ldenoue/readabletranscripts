@@ -290,6 +290,7 @@ async function getModelAnswer(prompt, maxretry = 4) {
         }
     }
 }
+window.getModelAnswer = getModelAnswer
 
 function languageName(json, lang) {
     return json.translationLanguages[lang] || 'English'
@@ -615,24 +616,24 @@ function buildWords(words, r = punctuatedDiv) {
         }
     }
     updateHighlights()
+}
 
-    if (r === punctuatedDiv) {
-      let headers = r.querySelectorAll('.header:not(.generating)')
-      for (let c of headers) {
-        let div = document.createElement('div')
-        div.className = 'tocitem'
-        div.innerHTML = `<div class="tocitemtitle">${c.textContent}</div><div>${msToTime(c.start)}</div>`
-        div.start = c.start
-        div.title = c.textContent
-        div.onclick = (evt) => {
-          evt.preventDefault()
-          evt.stopPropagation()
-          toggleToc()
-          play(div.start)
-          c.scrollIntoView()
-        }
-        toc.appendChild(div)
+function createToc(chapters) {
+    for (let c of chapters) {
+      let div = document.createElement('div')
+      div.className = 'tocitem'
+      div.innerHTML = `<div class="tocitemtitle">${c.text}</div><div>${msToTime(c.start)}</div>`
+      div.start = c.start
+      div.title = c.textContent
+      div.onclick = (evt) => {
+        evt.preventDefault()
+        evt.stopPropagation()
+        toggleToc()
+        play(div.start)
+        let header = Array.from(document.querySelectorAll('.header')).find(h => h.start === div.start)
+        header?.scrollIntoView()
       }
+      toc.appendChild(div)
     }
 }
 
@@ -688,16 +689,23 @@ function computeChapters(description) {
     let lines = description.split('\n')
     const reg = new RegExp(/\(?((\d\d?:)?\d\d?:\d\d)\)? ?(-(\d\d?:)?\d\d?:\d\d)?/)
     let idx = 0
+    let previousStart = 0
     for (let l of lines) {
         let m = l.match(reg)
         if (m) {
             const lineNumber = idx
             let ts = m[1].trim()
             let start = timeCodeToMs(ts)
+            if (start < previousStart) {
+              continue; // e.g. V_0dNE-H2gw (text lookd like a timestamp "7:00 PM CDT")
+            }
+            previousStart = start
             let text = l.replace(reg, '') // https://www.youtube.com/watch?v=SOxYgUIVq6g captions at the end
             if (text.indexOf('- ') === 0)
                 text = text.substring(2)
             text = text.replace(/[_\-–]+/g, '').trim()
+            text = text.replace(/\(?((\d\d?:)?\d\d?:\d\d)\)?/,'').trim() // remove second timestamp V_0dNE-H2gw
+            console.log(start, text)
             if (text.length === 0 && lineNumber < lines.length - 1 && !lines[lineNumber + 1].match(reg))
                 text = lines[lineNumber + 1].trim()
             res.push({ text, start })
@@ -1189,6 +1197,8 @@ async function punctuate(videoId, languageCode = 'en') {
       json.chapters = []
     }
     chapters = JSON.parse(JSON.stringify(json.chapters))
+    createToc(chapters)
+
     videoDuration = json.duration
     vtitle.innerHTML = `<a target="_blank" href="https://www.youtube.com/watch?v=${videoId}">${json.title}</a>`
     vurl.textContent = vurl.href = `https://www.youtube.com/watch?v=${videoId}`
@@ -1214,6 +1224,7 @@ async function punctuate(videoId, languageCode = 'en') {
 
     await localforage.setItem(videoId, json)
     const transcript = json[languageCode].chunks.map(c => c.text).join(' ')
+    window.originalText = transcript
     const videoTitle = json.title || ''
     const videoDescription = json.description || ''
 
@@ -1300,7 +1311,7 @@ if (videoId) {
     punctuate(videoId, languageCode)
     container.style.display = 'block'
 } else {
-    const examples = ['R6F3T3Bykqg.json','S53BanCP14c.json','U_GFmEgUxXo.json','p9Q5a1Vn-Hk.json']
+    const examples = ['V_0dNE-H2gw.json','R6F3T3Bykqg.json','S53BanCP14c.json','U_GFmEgUxXo.json','p9Q5a1Vn-Hk.json']
     const jsonItems = []
     for (let e of examples) {
       let res = await fetchData('./examples/' + e, true)
@@ -1353,7 +1364,7 @@ function toggleToc() {
   toc.classList.toggle('opened')
 }
 // This will make the player fixed when the marker above it leaves the viewport
-startObserving()
+//startObserving()
 
 tocBtn.onclick = toggleToc
 toc.onclick = toggleToc

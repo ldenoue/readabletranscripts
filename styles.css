@@ -489,19 +489,27 @@ footer {
   border-radius: 50rem;
 }
 @media (orientation: portrait) {
-  .fixed {
+  .fixed, #playercontainer {
     left: 0;
     top: 0;
+    position: fixed;
     width: 100% !important;
   }
   .row {
     display: block;
   }
+  .info {
+    display: none;
+  }
   #col1 {
     position: relative;
   }
   #col1, #col2 {
+      padding-top: 0!important;
       width: 100%;
+  }
+  body {
+    padding-top: calc(100vw * 9 / 16 + 16px)!important
   }
   #col3 {
       display: none;
@@ -634,7 +642,7 @@ h2, h1 {
   gap: 16px;
   padding: 0 16px;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   width: 100%;
 }
 
