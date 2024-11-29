@@ -674,3 +674,7 @@ h2, h1 {
   flex-direction: column;
   gap: 8px;
 }
+
+.top {
+  padding-top: 16px!important;
+}
