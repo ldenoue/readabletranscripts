@@ -617,7 +617,7 @@ function buildWords(words, r = punctuatedDiv) {
     updateHighlights()
 
     if (r === punctuatedDiv) {
-      let headers = r.querySelectorAll('.header')
+      let headers = r.querySelectorAll('.header:not(.generating)')
       for (let c of headers) {
         let div = document.createElement('div')
         div.className = 'tocitem'
