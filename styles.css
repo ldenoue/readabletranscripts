@@ -457,11 +457,7 @@ footer {
   width: 100%;
   text-align: center;
   position: sticky;
-  display: flex;
-  gap: 8px;
-  flex-direction: row;
-  justify-content: center;
-  align-items: center;
+  display: block;
   padding: 8px;
   top: 100%;
 }
@@ -565,37 +561,6 @@ h2, h1 {
   font-size: 0.9rem
 }
 
-@media print {
-  #vurl {
-    display: inline-block;
-  }
-  .btn, #tools, select, #toc {
-    display: none!important;
-  }
-  #thumb {
-    display: block;
-  }
-  #playercontainer {
-    display: none;
-  }
-  .fa-solid {
-    display: none;
-  }
-    .row {
-        display: block;
-    }
-    #col1, #col2 {
-        width: 100%;
-        padding-top: 0;
-    }
-    #col3 {
-        display: none;
-    }
-    .github-corner, #highlighter, #usageDiv {
-      display: none;
-    }
-}
-
 #marker {
   height: 1px;
 }
@@ -672,9 +637,46 @@ h2, h1 {
 #dd {
   display: flex;
   flex-direction: column;
+  justify-content: center;
+  align-items: center;
   gap: 8px;
 }
 
 .top {
   padding-top: 16px!important;
+}
+
+@media print {
+  body {
+    padding-top: 0!important;
+  }
+  #vurl {
+    display: inline-block;
+  }
+  .btn, #tools, select, #toc {
+    display: none!important;
+  }
+  #thumb {
+    display: block;
+    width: 60%;
+  }
+  #playercontainer {
+    display: none;
+  }
+  .fa-solid {
+    display: none;
+  }
+    .row {
+        display: block;
+    }
+    #col1, #col2 {
+        width: 100%;
+        padding-top: 0!important;
+    }
+    #col3 {
+        display: none;
+    }
+    .github-corner, #highlighter, #usageDiv {
+      display: none;
+    }
 }
