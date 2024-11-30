@@ -314,13 +314,12 @@ function languageName(json, lang) {
 
 const chunkSize = 512 // longer context makes the AI hallucinate more
 async function punctuateText(json, c, vocab = '', lang = 'en', p = null) {
-    const prompt = `
-  - fix the grammar and typos of the given video text transcript
+    const prompt = `- fix the grammar and typos of the given video text transcript
   - do not rephrase: keep the original wording but fix errors
   - write in the ${languageName(json, lang)} language
   - please add paragraphs where appropriate
   - do not add paragraphs numbers
-  - use this list of words as context to help you fix typos: """${vocab}""""
+  - use this list of words as context to help you fix typos: """${vocab}"""
   - answer with plain text only
   Here is the video text transcript to fix:
   """${c}"""`
@@ -1089,7 +1088,6 @@ async function getLocal(videoId, languageCode = 'en') {
     const json = await postData(
         "https://release-youtubei.sandbox.googleapis.com/youtubei/v1/player", payload)
     const obj = {}
-    window.yt = json
     if (json.error || json.videoDetails === undefined)
         return { error: 'invalid video' }
     obj.videoId = json.videoDetails.videoId
@@ -1199,6 +1197,7 @@ function showError(msg) {
 
 async function punctuate(videoId, languageCode = 'en') {
     let json = await getLocal(videoId, languageCode)
+    window.json = json
     if (json.error) {
         container.style.display = 'none'
         items.innerHTML = '<b>No transcript for this video</b>'
@@ -1357,10 +1356,10 @@ function startObserving() {
       entries.forEach((entry) => {
         if (!entry.isIntersecting) {
           target.classList.add('fixed')
-          summary.style.display = 'none'
+          //summary.style.display = 'none'
         } else {
           target.classList.remove('fixed')
-          summary.style.display = 'unset'
+          //summary.style.display = 'unset'
         }
       });
     },
@@ -1376,7 +1375,7 @@ function toggleToc() {
   toc.classList.toggle('opened')
 }
 // This will make the player fixed when the marker above it leaves the viewport
-//startObserving()
+startObserving()
 
 tocBtn.onclick = toggleToc
 toc.onclick = toggleToc
