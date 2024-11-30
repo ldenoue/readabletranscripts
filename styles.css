@@ -466,6 +466,7 @@ footer {
   position: fixed !important;
   width: 30vw !important;
   top: 16px;
+  left: 16px;
 }
 
 #selectLanguage {

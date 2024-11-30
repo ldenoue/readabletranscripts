@@ -1348,18 +1348,15 @@ keyBtn.onclick = () => {
 } 
 
 function startObserving() {
-  //const target = document.getElementById('playercontainer')
-  const target = document.getElementById('dd')
+  const target = document.getElementById('playercontainer')
   const marker = document.getElementById('marker')
   const observer = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
         if (!entry.isIntersecting) {
           target.classList.add('fixed')
-          //summary.style.display = 'none'
         } else {
           target.classList.remove('fixed')
-          //summary.style.display = 'unset'
         }
       });
     },
