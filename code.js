@@ -709,7 +709,6 @@ function computeChapters(description) {
                 text = text.substring(2)
             text = text.replace(/[_\-–]+/g, '').trim()
             text = text.replace(/\(?((\d\d?:)?\d\d?:\d\d)\)?/,'').trim() // remove second timestamp V_0dNE-H2gw
-            console.log(start, text)
             if (text.length === 0 && lineNumber < lines.length - 1 && !lines[lineNumber + 1].match(reg))
                 text = lines[lineNumber + 1].trim()
             res.push({ text, start })
@@ -1082,6 +1081,7 @@ async function getLocal(videoId, languageCode = 'en') {
     const json = await postData(
         "https://release-youtubei.sandbox.googleapis.com/youtubei/v1/player", payload)
     const obj = {}
+    window.yt = json
     if (json.error || json.videoDetails === undefined)
         return { error: 'invalid video' }
     obj.videoId = json.videoDetails.videoId
@@ -1191,7 +1191,6 @@ function showError(msg) {
 
 async function punctuate(videoId, languageCode = 'en') {
     let json = await getLocal(videoId, languageCode)
-    window.json = json
     if (json.error) {
         container.style.display = 'none'
         items.innerHTML = '<b>No transcript for this video</b>'
