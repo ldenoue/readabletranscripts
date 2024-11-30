@@ -557,8 +557,8 @@ h2, h1 {
   padding-top: 80px;
 }
 
-#usageDiv, #vduration {
-  font-size: 0.9rem
+#usageDiv, #vduration, #clearCacheBtn {
+  font-size: 0.9rem;
 }
 
 #marker {

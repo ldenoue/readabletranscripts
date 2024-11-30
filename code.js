@@ -1,7 +1,5 @@
 import { marked } from "https://esm.run/marked"
 import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai"
-//import Autolinker from 'https://cdn.jsdelivr.net/npm/autolinker@4.0.0/+esm'
-//const autolinker = new Autolinker({ newWindow: true })
 
 const API_KEY = window.localStorage.API_KEY
 if (API_KEY) {
@@ -252,17 +250,38 @@ function timeout(ms) {
 let outputTokens = 0
 let inputTokens = 0
 let totalTokens = 0
-const inputPrice = 0.0375 // 1 million tokens
-const outputPrice = 0.15 // 1 million tokens
-const simulatedUsers = 1
+const llmProviders = {
+  'Gemini Flash8B (1M/8k)': {
+    inputPrice: 0.0375, // 1 million tokens
+    outputPrice: 0.15, // 1 million tokens
+  },
+  'Groq Llama 3.1 8B Instant 128k/8k': {
+    inputPrice: 0.05, // 1 million tokens
+    outputPrice: 0.08, // 1 million tokens
+  }
+}
+
 function computePrice(token, pricePerMillion) {
-    return token * pricePerMillion / 1000000 * simulatedUsers
+    return token * pricePerMillion / 1000000
 }
 
 function formatPrice(price) {
     return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 5, style: "currency", currency: "USD" })
 }
 
+function updateEstimatedPrice( inputTokens, outputTokens, totalTokens) {
+  clearCacheBtn.style.display = 'none'
+  let usageCaption = `Tokens ${totalTokens}`
+  for (let providerName in llmProviders) {
+    const data = llmProviders[providerName]
+    const priceInput = computePrice(inputTokens, data.inputPrice)
+    const priceOutput = computePrice(outputTokens, data.outputPrice)
+    const priceTotal = priceInput + priceOutput
+    usageCaption += ` ${providerName}: ${formatPrice(priceTotal)}`
+  }
+  usageDiv.textContent = usageCaption
+  usageDiv.style.display = 'block'
+}
 async function getModelAnswer(prompt, maxretry = 4) {
     if (!API_KEY) {
       summary.innerHTML = '<p>Please set your API KEY on the <a href="./">home page</a><p>'
@@ -275,13 +294,10 @@ async function getModelAnswer(prompt, maxretry = 4) {
             inputTokens += res.response.usageMetadata.promptTokenCount
             outputTokens += res.response.usageMetadata.candidatesTokenCount
             totalTokens += res.response.usageMetadata.totalTokenCount
-            const priceInput = computePrice(inputTokens, inputPrice)
-            const priceOutput = computePrice(outputTokens, outputPrice)
-            const priceTotal = priceInput + priceOutput
-            usageDiv.textContent = `Tokens ${totalTokens} Cost ${formatPrice(priceTotal)}`
-            usageDiv.style.display = 'block'
+            updateEstimatedPrice(inputTokens, outputTokens, totalTokens)
             return res
         } catch (error) {
+          console.log(error)
             if (error.message && error.message.indexOf('API_KEY_INVALID')) {
               console.log('error: API_KEY_INVALID')
               return null
@@ -577,14 +593,6 @@ function buildWords(words, r = punctuatedDiv) {
         }
         const caption = w.o + ' '
         const addPlay = true
-        /*const html = autolinker.link(w.o) + ' '
-        let addPlay = true
-        if (html !== caption) {
-          addPlay = false
-          span.innerHTML = autolinker.link(w.o) + ' '
-        } else {
-          span.textContent = caption
-        }*/
         span.textContent = caption
         if (w.s !== undefined) {
             span.o = w.o
@@ -1383,6 +1391,11 @@ downloadBtn.onclick = async () => {
   link.click()
   link.remove()
   URL.revokeObjectURL(url)
+}
+
+clearCacheBtn.onclick = async () => {
+  await window.localforage.removeItem(videoId)
+  window.location.reload()
 }
 
 let searchTerm = params.get('q')
