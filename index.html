@@ -32,10 +32,14 @@
       </form>
       <form method="get">
         <div class="flexrow">
-          <input type="text" id="apiKey" placeholder="Gemini API Key" value="">
+          Gemini <input type="text" id="apiKey" placeholder="Gemini API Key" value="">
           <button type="submit" id="keyBtn">Set Key</button>
         </div>
-        <p>Get a free API Key on <a href="https://aistudio.google.com/apikey" target="_blank">AI Studio</a>. The key is used in your browser only.</p>
+        <div class="flexrow">
+          Groq <input type="text" id="groqApiKey" placeholder="Groq API Key" value="">
+          <button type="submit" id="groqKeyBtn">Set Key</button>
+        </div>
+        <p>Get free API keys for <a href="https://aistudio.google.com/apikey" target="_blank">Gemini</a> and/or <a href="https://console.groq.com/keys">Groq</a>. Keys is used in your browser only.</p>
       </form>
     </div>
     <div id="items">

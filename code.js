@@ -1,12 +1,28 @@
 import { marked } from "https://esm.run/marked"
 import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai"
 
+const geminiModels = ['gemini-1.5-flash-8b']
+const geminiModel = geminiModels[0]
+
+const groqModels = ['llama-3.1-8b-instant', 'llama-3.2-1b-preview', 'llama-3.2-3b-preview']
+
 const API_KEY = window.localStorage.API_KEY
 if (API_KEY) {
   apiKey.value = API_KEY
 }
 
+const model = await getGenerativeModel(API_KEY, { model: geminiModel });
+
+const GROQ_API_KEY = window.localStorage.GROQ_API_KEY
+if (GROQ_API_KEY) {
+  groqApiKey.value = GROQ_API_KEY
+}
+
 const params = new URLSearchParams(window.location.search)
+let groqModel = params.get('model')
+if (groqModel === geminiModel)
+    groqModel = null
+
 const languageCode = params.get('language') || 'en'
 const followingAudio = true
 const chapterDelta = 1000
@@ -175,8 +191,6 @@ function chunkText(text, maxWords = 4000) {
 
     return chunks;
 }
-const modelName = 'gemini-1.5-flash-8b'
-const model = await getGenerativeModel(API_KEY, { model: modelName });
 
 async function ytsr(q) {
     if (!q)
@@ -250,14 +264,23 @@ function timeout(ms) {
 let outputTokens = 0
 let inputTokens = 0
 let totalTokens = 0
+
 const llmProviders = {
-  'Gemini Flash8B (1M/8k)': {
-    inputPrice: 0.0375, // 1 million tokens
-    outputPrice: 0.15, // 1 million tokens
+  'gemini-1.5-flash-8b': {
+    inputPrice: 0.0375,
+    outputPrice: 0.15,
   },
-  'Groq Llama 3.1 8B Instant 128k/8k': {
-    inputPrice: 0.05, // 1 million tokens
-    outputPrice: 0.08, // 1 million tokens
+  'llama-3.1-8b-instant': {
+    inputPrice: 0.05,
+    outputPrice: 0.08,
+  },
+  'llama-3.2-1b-preview': {
+    inputPrice: 0.04,
+    outputPrice: 0.04,
+  },
+  'llama-3.2-3b-preview': {
+    inputPrice: 0.06,
+    outputPrice: 0.06,
   }
 }
 
@@ -270,18 +293,61 @@ function formatPrice(price) {
 }
 
 function updateEstimatedPrice( inputTokens, outputTokens, totalTokens) {
-  clearCacheBtn.style.display = 'none'
-  let usageCaption = `Tokens ${totalTokens}`
+  let usageCaption = `Tokens ${totalTokens} Time to process <span id="duration"></span><br>`
   for (let providerName in llmProviders) {
     const data = llmProviders[providerName]
     const priceInput = computePrice(inputTokens, data.inputPrice)
     const priceOutput = computePrice(outputTokens, data.outputPrice)
     const priceTotal = priceInput + priceOutput
-    usageCaption += ` ${providerName}: ${formatPrice(priceTotal)}`
+    const isCurrentProvider = (providerName === groqModel) || (groqModel === null && providerName === geminiModel)
+    usageCaption += isCurrentProvider ? '<b>' : ''
+    usageCaption += ` <a href="./?id=${videoId}&model=${providerName}">${providerName}: ${formatPrice(priceTotal)}</a>`
+    usageCaption += isCurrentProvider ? '</b>' : ''
+    usageCaption += '<br>'
   }
-  usageDiv.textContent = usageCaption
+  usageDiv.innerHTML = usageCaption
   usageDiv.style.display = 'block'
 }
+
+async function getGroq(prompt, systemPrompt = 'You are a helpful assistant and only return the result without extra explanation.') {
+  const obj = {
+    "messages": [
+      {
+          "role": "system",
+          "content": systemPrompt
+      },
+      {
+          "role": "user",
+          "content": prompt
+      }
+    ],
+    "model": groqModel,
+    "temperature": 0,
+  }
+  try {
+    let result = await fetch("https://api.groq.com/openai/v1/chat/completions",{
+      'method': 'POST',
+      'headers': {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + GROQ_API_KEY,
+      },
+      'body': JSON.stringify(obj)
+    });
+    let res = await result.json();
+    inputTokens += res.usage.prompt_tokens
+    outputTokens += res.usage.completion_tokens
+    totalTokens += res.usage.total_tokens
+    updateEstimatedPrice(inputTokens, outputTokens, totalTokens)
+    let text = res.choices[0].message.content
+    return text
+  } catch (e) {
+    console.log('error groq',e)
+    return null
+  }
+}
+
+window.getGroq = getGroq
+
 async function getModelAnswer(prompt, maxretry = 4) {
     if (!API_KEY) {
       summary.innerHTML = '<p>Please set your API KEY on the <a href="./">home page</a><p>'
@@ -290,14 +356,20 @@ async function getModelAnswer(prompt, maxretry = 4) {
 
     for (let i = 0; i < maxretry; i++) {
         try {
-            let res = await model.generateContent([prompt])
-            inputTokens += res.response.usageMetadata.promptTokenCount
-            outputTokens += res.response.usageMetadata.candidatesTokenCount
-            totalTokens += res.response.usageMetadata.totalTokenCount
-            updateEstimatedPrice(inputTokens, outputTokens, totalTokens)
-            return res
+            let res = null
+            if (groqModel) {
+              res = await getGroq(prompt)
+              return res
+            } else {
+              res = await model.generateContent([prompt])
+              inputTokens += res.response.usageMetadata.promptTokenCount
+              outputTokens += res.response.usageMetadata.candidatesTokenCount
+              totalTokens += res.response.usageMetadata.totalTokenCount
+              updateEstimatedPrice(inputTokens, outputTokens, totalTokens)
+              return res.response.text()
+            }
         } catch (error) {
-          console.log(error)
+            console.log(error)
             if (error.message && error.message.indexOf('API_KEY_INVALID')) {
               console.log('error: API_KEY_INVALID')
               return null
@@ -328,7 +400,7 @@ async function punctuateText(json, c, vocab = '', lang = 'en', p = null) {
     return new Promise((a, r) => {
         if (!res)
             a('')
-        let text = res.response.text()
+        let text = res
         if (text.indexOf(lang) === 0)
             text = text.substring(lang.length)
         a(text)
@@ -748,15 +820,16 @@ function parseYTChapters(chapters) {
 
 async function createVocabulary(json, videoId, description = '', languageCode = 'en') {
     if (json && json[languageCode] && json[languageCode].vocabulary) {
-        console.log('cached vocab')
-        return json[languageCode].vocabulary
+        const cachedVocab = json[languageCode].vocabulary
+        console.log('cached vocab', cachedVocab)
+        return cachedVocab
     }
     if (!description || description.trim().length === 0)
         return ''
     let res = await getModelAnswer(`Return important words including names from this description and return as a simple list separated by commas: ${description}`)
     if (!res)
         return ''
-    let vocabulary = res.response.text().replace(/\s+/g, ' ')
+    let vocabulary = res.replace(/\s+/g, ' ')
     if (json[languageCode])
       json[languageCode].vocabulary = vocabulary
     else
@@ -939,7 +1012,7 @@ async function getSummary(json, videoId, transcript, languageCode = 'en', vocab)
     const result = await getModelAnswer(summaryPrompt)
     if (!result)
         return ''
-    let summary = result.response.text()
+    let summary = result
     if (summary.indexOf(languageCode) === 0)
         summary = summaryText.substring(languageCode.length)
     if (json[languageCode])
@@ -1230,7 +1303,7 @@ async function punctuate(videoId, languageCode = 'en') {
       option.selected = l === languageCode
       selectLanguage.appendChild(option)
     }
-    selectLanguage.onchange = () => window.location.href = './?id=' + videoId + '&language=' + selectLanguage.value
+    selectLanguage.onchange = () => window.location.href = './?id=' + videoId + '&language=' + selectLanguage.value + (groqModel ? '&model=' + groqModel : '')
 
     await localforage.setItem(videoId, json)
     const transcript = json[languageCode].chunks.map(c => c.text).join(' ')
@@ -1303,6 +1376,7 @@ async function punctuate(videoId, languageCode = 'en') {
     console.log('duration=', endTime - startTime, json.duration)
     let punctuatedTimes = testDiff(wordTimes, punctuatedText)
     punctuatedDiv.innerHTML = ''
+    usageDiv.querySelector('#duration').textContent = msToTime(endTime - startTime)
     buildWords(punctuatedTimes)
 }
 
@@ -1344,6 +1418,11 @@ pdfBtn.onclick = () => { window.print() }
 
 keyBtn.onclick = () => {
   window.localStorage.API_KEY = apiKey.value.trim()
+  window.location.reload()
+} 
+
+groqKeyBtn.onclick = () => {
+  window.localStorage.GROQ_API_KEY = groqApiKey.value.trim()
   window.location.reload()
 } 
 
