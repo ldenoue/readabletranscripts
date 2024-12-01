@@ -4,7 +4,8 @@ import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai"
 const geminiModels = ['gemini-1.5-flash-8b']
 const geminiModel = geminiModels[0]
 
-const groqModels = ['llama-3.1-8b-instant', 'llama-3.2-1b-preview', 'llama-3.2-3b-preview']
+//const groqModels = ['llama-3.1-8b-instant', 'llama-3.2-1b-preview', 'llama-3.2-3b-preview']
+const groqModels = ['llama-3.1-8b-instant']
 
 const API_KEY = window.localStorage.API_KEY
 if (API_KEY) {
@@ -273,7 +274,7 @@ const llmProviders = {
   'llama-3.1-8b-instant': {
     inputPrice: 0.05,
     outputPrice: 0.08,
-  },
+  }/*,
   'llama-3.2-1b-preview': {
     inputPrice: 0.04,
     outputPrice: 0.04,
@@ -281,7 +282,7 @@ const llmProviders = {
   'llama-3.2-3b-preview': {
     inputPrice: 0.06,
     outputPrice: 0.06,
-  }
+  }*/
 }
 
 function computePrice(token, pricePerMillion) {
@@ -293,7 +294,7 @@ function formatPrice(price) {
 }
 
 function updateEstimatedPrice( inputTokens, outputTokens, totalTokens) {
-  let usageCaption = `Tokens ${totalTokens} Time to process <span id="duration"></span><br>`
+  let usageCaption = `Tokens ${totalTokens}<br>`
   for (let providerName in llmProviders) {
     const data = llmProviders[providerName]
     const priceInput = computePrice(inputTokens, data.inputPrice)
@@ -1268,6 +1269,8 @@ function showError(msg) {
   punctuatedDiv.textContent = msg
 }
 
+let transcript = null
+let vocab = null
 async function punctuate(videoId, languageCode = 'en') {
     let json = await getLocal(videoId, languageCode)
     window.json = json
@@ -1306,7 +1309,7 @@ async function punctuate(videoId, languageCode = 'en') {
     selectLanguage.onchange = () => window.location.href = './?id=' + videoId + '&language=' + selectLanguage.value + (groqModel ? '&model=' + groqModel : '')
 
     await localforage.setItem(videoId, json)
-    const transcript = json[languageCode].chunks.map(c => c.text).join(' ')
+    transcript = json[languageCode].chunks.map(c => c.text).join(' ')
     window.originalText = transcript
     const videoTitle = json.title || ''
     const videoDescription = json.description || ''
@@ -1315,8 +1318,8 @@ async function punctuate(videoId, languageCode = 'en') {
     const originalWithParagraphs = chunkText(transcript, 64).join('\n')
     const alignedOriginalTimes = testDiff(wordTimes, originalWithParagraphs)
     buildWords(alignedOriginalTimes, originalDiv)
-    const vocab = await createVocabulary(json, videoId, videoTitle + ' ' + videoDescription, languageCode)
-    computeSummary(json, videoId, transcript, languageCode, vocab)
+    vocab = await createVocabulary(json, videoId, videoTitle + ' ' + videoDescription, languageCode)
+    //computeSummary(json, videoId, transcript, languageCode, vocab)
     punctuatedDiv.innerHTML = '<p>' + spin('Transcribing...') + '</p>'
     let startTime = Date.now()
     const cachedPunctuatedText = json[languageCode].punctuatedText
@@ -1370,13 +1373,12 @@ async function punctuate(videoId, languageCode = 'en') {
         punctuatedText += ' ' + fragments[i] + ' ' + parts[i].right
     }
     punctuatedText = punctuatedText.replace(/,\s+/g, ', ')
+    let endTime = Date.now()
+    durationSpan.textContent = msToTime(endTime - startTime)
     json[languageCode].punctuatedText = punctuatedText
     localforage.setItem(videoId, json)
-    let endTime = Date.now()
-    console.log('duration=', endTime - startTime, json.duration)
     let punctuatedTimes = testDiff(wordTimes, punctuatedText)
     punctuatedDiv.innerHTML = ''
-    usageDiv.querySelector('#duration').textContent = msToTime(endTime - startTime)
     buildWords(punctuatedTimes)
 }
 
@@ -1473,6 +1475,10 @@ clearCacheBtn.onclick = async () => {
   window.location.reload()
 }
 
+summaryBtn.onclick = () => {
+  summaryBtn.disabled = true
+  computeSummary(json, videoId, transcript, languageCode, vocab)
+}
 let searchTerm = params.get('q')
 if (searchTerm > '') {
     q.value = searchTerm

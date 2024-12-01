@@ -558,7 +558,7 @@ h2, h1 {
   padding-top: 80px;
 }
 
-#usageDiv, #vduration, #clearCacheBtn {
+#usageDiv, #vduration, #clearCacheBtn, #durationSpan {
   font-size: 0.9rem;
 }
 
