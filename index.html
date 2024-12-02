@@ -26,32 +26,25 @@
       <h1><a href="./">Readable Transcripts</a></h1>
       <form method="get">
         <div class="flexrow">
-          <input type="text" name="q" id="q" placeholder="YouTube link or query" value="">
-          <button type="submit" id="searchBtn">Search</button>
+          <input type="text" name="q" id="q" size="32" placeholder="YouTube link or query" value="">
+          <button type="submit" id="searchBtn"><i class="fa-solid fa-magnifying-glass"></i></button>
         </div>
       </form>
-      <form method="get">
-        <div class="flexrow">
-          Gemini <input type="text" id="apiKey" placeholder="Gemini API Key" value="">
-          <button type="submit" id="keyBtn">Set Key</button>
-        </div>
-        <div class="flexrow">
-          Groq <input type="text" id="groqApiKey" placeholder="Groq API Key" value="">
-          <button type="submit" id="groqKeyBtn">Set Key</button>
-        </div>
-        <p>Get free API keys for <a href="https://aistudio.google.com/apikey" target="_blank">Gemini</a> and/or <a href="https://console.groq.com/keys">Groq</a>. Keys is used in your browser only.</p>
-      </form>
+      <div class="flex">
+        <button id="geminiBtn">Gemini</button>
+        <button id="groqBtn">Groq</button>
+        <button id="deepInfraBtn">DeepInfra</button>
+      </div>
     </div>
     <div id="items">
     </div>
     <div id="container" class="row">
       <div class="column" id="col1">
-        <h2>
-          <a href="./"><i class="btn fa-solid fa-home"></i></a>
-        </h2>
+        <a href="./"><i class="btn fa-solid fa-home"></i></a>
         <b id="vtitle"></b>
         <a id="vurl" target="_blank" href=""></a>
-        <div class="flexrow start"><span id="vduration"></span> <span id="usageDiv"></span> <span id="durationSpan"></span><a title="Refresh (clears cached data for this video)" href="#" id="clearCacheBtn"><i class="fa-solid fa-rotate-left"></i></a></div>
+        <div><span id="vduration">--:--</span> Tokens: <span id="totalTokensSpan"></span> Time: <span id="durationSpan">--:--</span></div>
+        <div><span id="usageDiv"></span> <a title="Refresh (clears cached data for this video)" href="#" id="clearCacheBtn"><i class="fa-solid fa-rotate-left"></i></a></div>
         <div id="marker"></div>
         <div id="dd">
           <div id="playercontainer">

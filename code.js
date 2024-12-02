@@ -1,29 +1,39 @@
 import { marked } from "https://esm.run/marked"
 import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai"
+import { OpenAI} from "https://cdn.jsdelivr.net/npm/openai@4.73.1/+esm"
 
 const geminiModels = ['gemini-1.5-flash-8b']
 const geminiModel = geminiModels[0]
 
-//const groqModels = ['llama-3.1-8b-instant', 'llama-3.2-1b-preview', 'llama-3.2-3b-preview']
 const groqModels = ['llama-3.1-8b-instant']
+const deepInfraModels = ['meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo']
 
 const API_KEY = window.localStorage.API_KEY
-if (API_KEY) {
+/*if (API_KEY) {
   apiKey.value = API_KEY
-}
+}*/
 
 const model = await getGenerativeModel(API_KEY, { model: geminiModel, generationConfig: { temperature: 0.0} });
 window.model = model
 
 const GROQ_API_KEY = window.localStorage.GROQ_API_KEY
-if (GROQ_API_KEY) {
+/*if (GROQ_API_KEY) {
   groqApiKey.value = GROQ_API_KEY
+}*/
+
+let openai = null
+const DEEP_INFRA_API_KEY = window.localStorage.DEEP_INFRA_API_KEY
+if (DEEP_INFRA_API_KEY) {
+  //deepInfraApiKey.value = DEEP_INFRA_API_KEY
+  openai = new OpenAI({
+    apiKey: DEEP_INFRA_API_KEY,
+    baseURL: 'https://api.deepinfra.com/v1/openai',
+    dangerouslyAllowBrowser: true,
+  });
 }
 
 const params = new URLSearchParams(window.location.search)
-let groqModel = params.get('model')
-if (groqModel === geminiModel)
-    groqModel = null
+let currentProvider = params.get('model') || geminiModel
 
 const languageCode = params.get('language') || 'en'
 const followingAudio = true
@@ -266,11 +276,16 @@ function timeout(ms) {
 let outputTokens = 0
 let inputTokens = 0
 let totalTokens = 0
+let totalPrice = 0
 
 const llmProviders = {
   'gemini-1.5-flash-8b': {
     inputPrice: 0.0375,
     outputPrice: 0.15,
+  },
+  'meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo': {
+    inputPrice: 0.05,
+    outputPrice: 0.05,
   },
   'llama-3.1-8b-instant': {
     inputPrice: 0.05,
@@ -294,16 +309,17 @@ function formatPrice(price) {
     return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 5, style: "currency", currency: "USD" })
 }
 
-function updateEstimatedPrice( inputTokens, outputTokens, totalTokens) {
-  let usageCaption = `Tokens ${totalTokens}<br>`
+function updateEstimatedPrice( inputTokens, outputTokens, totalTokens, totalPrice = null) {
+  totalTokensSpan.textContent = totalTokens
+  let usageCaption = ''
   for (let providerName in llmProviders) {
     const data = llmProviders[providerName]
     const priceInput = computePrice(inputTokens, data.inputPrice)
     const priceOutput = computePrice(outputTokens, data.outputPrice)
-    const priceTotal = priceInput + priceOutput
-    const isCurrentProvider = (providerName === groqModel) || (groqModel === null && providerName === geminiModel)
+    const priceTotal = (priceInput + priceOutput)
+    const isCurrentProvider = providerName === currentProvider
     usageCaption += isCurrentProvider ? '<b>' : ''
-    usageCaption += ` <a href="./?id=${videoId}&model=${providerName}">${providerName}: ${formatPrice(priceTotal)}</a>`
+    usageCaption += ` <a onclick="updateModel('${providerName}')" href="#">${providerName}: ${formatPrice(priceTotal)}</a>`
     usageCaption += isCurrentProvider ? '</b>' : ''
     usageCaption += '<br>'
   }
@@ -311,7 +327,27 @@ function updateEstimatedPrice( inputTokens, outputTokens, totalTokens) {
   usageDiv.style.display = 'block'
 }
 
-async function getGroq(prompt, systemPrompt = 'You are a helpful assistant and only return the result without extra explanation.') {
+const SYSTEM_PROMPT = 'You are a helpful assistant and only return the result without extra explanation.'
+
+async function getDeepInfra(prompt, systemPrompt = SYSTEM_PROMPT) {
+  const completion = await openai.chat.completions.create({
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: prompt }
+    ],
+    model: currentProvider,
+    stream: false,
+  });
+  let text = completion.choices[0].message.content
+  inputTokens += completion.usage.prompt_tokens
+  outputTokens += completion.usage.completion_tokens
+  totalTokens += completion.usage.total_tokens
+  totalPrice += completion.usage.estimated_cost
+  updateEstimatedPrice(inputTokens, outputTokens, totalTokens, totalPrice)
+return text
+}
+
+async function getGroq(prompt, systemPrompt = SYSTEM_PROMPT) {
   const obj = {
     "messages": [
       {
@@ -323,7 +359,7 @@ async function getGroq(prompt, systemPrompt = 'You are a helpful assistant and o
           "content": prompt
       }
     ],
-    "model": groqModel,
+    "model": currentProvider,
     "temperature": 0,
   }
   try {
@@ -359,9 +395,10 @@ async function getModelAnswer(prompt, maxretry = 4, retryDelayMs = 4000) {
     for (let i = 0; i < maxretry; i++) {
         try {
             let res = null
-            if (groqModel) {
-              res = await getGroq(prompt)
-              return res
+            if (deepInfraModels.indexOf(currentProvider) !== -1) {
+              return await getDeepInfra(prompt)
+            } else if (groqModels.indexOf(currentProvider) !== -1) {
+              return await getGroq(prompt)
             } else {
               res = await model.generateContent([prompt])
               inputTokens += res.response.usageMetadata.promptTokenCount
@@ -1179,6 +1216,7 @@ async function getLocal(videoId, languageCode = 'en') {
     // https://stackoverflow.com/questions/67615278/get-video-info-youtube-endpoint-suddenly-returning-404-not-found
     const json = await postData(
         "https://release-youtubei.sandbox.googleapis.com/youtubei/v1/player", payload)
+    window.yt = json
     const obj = {}
     if (json.error || json.videoDetails === undefined)
         return { error: 'invalid video' }
@@ -1290,6 +1328,11 @@ function showError(msg) {
 let transcript = null
 let vocab = null
 async function punctuate(videoId, languageCode = 'en') {
+    totalPrice = 0
+    inputTokens = 0
+    outputTokens = 0
+    totalTokens = 0
+    updateEstimatedPrice(inputTokens, outputTokens, totalTokens, totalPrice)
     let json = await getLocal(videoId, languageCode)
     window.json = json
     if (json.error) {
@@ -1365,6 +1408,8 @@ async function punctuate(videoId, languageCode = 'en') {
         return
     } else if (res.length === 1) {
         let punctuatedText = res[0]
+        let endTime = Date.now()
+        durationSpan.textContent = msToTime(endTime - startTime)
         json[languageCode].punctuatedText = punctuatedText
         localforage.setItem(videoId, json)
         let punctuatedTimes = testDiff(wordTimes, punctuatedText)
@@ -1436,15 +1481,27 @@ highlighter.onmousedown = (evt) => addHighlight(evt)
 
 pdfBtn.onclick = () => { window.print() }
 
-keyBtn.onclick = () => {
-  window.localStorage.API_KEY = apiKey.value.trim()
-  window.location.reload()
+
+geminiBtn.onclick = () => {
+  const result = prompt("Enter your Gemini API_KEY", API_KEY || '')
+  if (result) {
+    window.localStorage.API_KEY = result
+  }
 } 
 
-groqKeyBtn.onclick = () => {
-  window.localStorage.GROQ_API_KEY = groqApiKey.value.trim()
-  window.location.reload()
+groqBtn.onclick = () => {
+  const result = prompt("Enter your Groq API_KEY", GROQ_API_KEY || '')
+  if (result) {
+    window.localStorage.GROQ_API_KEY = result
+  }
 } 
+
+deepInfraBtn.onclick = () => {
+  const result = prompt("Enter your DeepInfra API_KEY", DEEP_INFRA_API_KEY || '')
+  if (result) {
+    window.localStorage.DEEP_INFRA_API_KEY = result
+  }
+}
 
 function startObserving() {
   const target = document.getElementById('playercontainer')
@@ -1487,6 +1544,15 @@ downloadBtn.onclick = async () => {
   link.remove()
   URL.revokeObjectURL(url)
 }
+
+async function updateModel(newProvider) {
+  if (newProvider !== currentProvider) {
+    await window.localforage.removeItem(videoId)
+    window.location.href = `./?id=${videoId}&model=${newProvider}&language=${selectLanguage.value}`
+  }
+}
+
+window.updateModel = updateModel
 
 clearCacheBtn.onclick = async () => {
   await window.localforage.removeItem(videoId)
