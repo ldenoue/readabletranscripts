@@ -12,7 +12,8 @@ if (API_KEY) {
   apiKey.value = API_KEY
 }
 
-const model = await getGenerativeModel(API_KEY, { model: geminiModel });
+const model = await getGenerativeModel(API_KEY, { model: geminiModel, generationConfig: { temperature: 0.0} });
+window.model = model
 
 const GROQ_API_KEY = window.localStorage.GROQ_API_KEY
 if (GROQ_API_KEY) {
@@ -349,7 +350,7 @@ async function getGroq(prompt, systemPrompt = 'You are a helpful assistant and o
 
 window.getGroq = getGroq
 
-async function getModelAnswer(prompt, maxretry = 4) {
+async function getModelAnswer(prompt, maxretry = 4, retryDelayMs = 4000) {
     if (!API_KEY) {
       summary.innerHTML = '<p>Please set your API KEY on the <a href="./">home page</a><p>'
       return null
@@ -375,7 +376,7 @@ async function getModelAnswer(prompt, maxretry = 4) {
               console.log('error: API_KEY_INVALID')
               return null
             }
-            await timeout(2000)
+            await timeout(retryDelayMs)
         }
     }
 }
@@ -387,7 +388,7 @@ function languageName(json, lang) {
 
 const chunkSize = 512 // longer context makes the AI hallucinate more
 async function punctuateText(json, c, vocab = '', lang = 'en', p = null) {
-    const prompt = `- fix the grammar and typos of the given video text transcript
+    const oldprompt = `- fix the grammar and typos of the given video text transcript
   - do not rephrase: keep the original wording but fix errors
   - write in the ${languageName(json, lang)} language
   - please add paragraphs where appropriate
@@ -396,6 +397,23 @@ async function punctuateText(json, c, vocab = '', lang = 'en', p = null) {
   - answer with plain text only
   Here is the video text transcript to fix:
   """${c}"""`
+    const prompt = `You are an AI assistant tasked with cleaning up raw ASR transcripts. Your goal is to add correct punctuation and capitalization while ensuring that you do not introduce or remove any information from the original text.
+
+Guidelines:
+
+Preserve Content: Do not add new words or alter the meaning of any phrases.
+Punctuation: Insert periods, commas, and other punctuation marks where appropriate to improve readability.
+Capitalization: Apply correct capitalization, especially at the beginning of sentences and for proper nouns.
+Grammar: Correct minor grammatical issues if they clearly align with the spoken context, but avoid rephrasing.
+No Hallucinations: If a word or phrase is unclear, retain the original text or indicate uncertainty rather than guessing.
+Write in the ${languageName(json, lang)} language
+Add paragraphs where appropriate, especially if a question is followed by an answer
+Do not add paragraphs numbers
+Use this list of words as context to help you fix typos: ${vocab}
+
+Here is the ASR transcript to clean up:
+${c}
+`
     let finalPrompt = p ? p + c : prompt
     let res = await getModelAnswer(finalPrompt)
     return new Promise((a, r) => {
