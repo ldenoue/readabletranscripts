@@ -391,6 +391,8 @@ async function getGroq(prompt, systemPrompt = SYSTEM_PROMPT) {
 window.getGroq = getGroq
 
 async function getJSONAnswer(prompt) {
+  apiCalls++
+  apiCallsSpan.textContent = apiCalls
   const res = await jsonModel.generateContent([prompt])
   inputTokens += res.response.usageMetadata.promptTokenCount
   outputTokens += res.response.usageMetadata.candidatesTokenCount
@@ -1462,8 +1464,9 @@ async function punctuate(videoId, languageCode = 'en') {
         buildWords(punctuatedTimes)
         return
     }
-    let merges = []
+    //let merges = []
     let parts = []
+    let sentencesToFix = []
     for (let i = 0; i < res.length - 1; i++) {
         let a = findChunkEnd(res[i])
         let b = findChunkStart(res[i + 1])
@@ -1472,13 +1475,20 @@ async function punctuate(videoId, languageCode = 'en') {
             b.paragraph = t.paragraph
         }
         parts.push({ left: a.paragraph, right: b.paragraph })
-        let merged = mergeSentences(json, a.end, b.start, vocab, languageCode)
-        merges.push(merged)
+        const sentence = clean(a.end) + ' ' + clean(b.start)
+        sentencesToFix.push('- ' + sentence)
+        //let merged = mergeSentences(json, a.end, b.start, vocab, languageCode)
+        //merges.push(merged)
     }
-    let fragments = await Promise.all(merges)
+    //let fragments = await Promise.all(merges)
+    const fix = 'please fix types and punctuation in each line, independently. Answer as a JSON array with "sentence_fixed" as the key for each sentence:\n' + sentencesToFix.join('\n')
+    console.log(fix)
+    let fragments = await getJSONAnswer(fix)
+    fragments = JSON.parse(fragments)
+    console.log(fragments)
     let punctuatedText = parts[0].left
     for (let i = 0; i < fragments.length; i++) {
-        punctuatedText += ' ' + fragments[i] + ' ' + parts[i].right
+        punctuatedText += ' ' + fragments[i].sentence_fixed + ' ' + parts[i].right
     }
     punctuatedText = punctuatedText.replace(/,\s+/g, ', ')
     clearInterval(durationInterval)
