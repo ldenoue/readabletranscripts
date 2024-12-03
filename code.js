@@ -319,22 +319,16 @@ async function llmChapters(text) {
 }
 
 window.llmChapters = () => llmChapters(json.en.punctuatedText)
-function updateEstimatedPrice( inputTokens, outputTokens, totalTokens, totalPrice = null) {
+function updateEstimatedPrice( inputTokens, outputTokens, totalTokens) {
   totalTokensSpan.textContent = totalTokens
-  let usageCaption = ''
-  for (let providerName in llmProviders) {
-    const data = llmProviders[providerName]
-    const priceInput = computePrice(inputTokens, data.inputPrice)
-    const priceOutput = computePrice(outputTokens, data.outputPrice)
-    const priceTotal = (priceInput + priceOutput)
-    const isCurrentProvider = providerName === currentProvider
-    usageCaption += isCurrentProvider ? '<b>' : ''
-    usageCaption += ` <a onclick="updateModel('${providerName}')" href="#">${providerName}: ${formatPrice(priceTotal)}</a>`
-    usageCaption += isCurrentProvider ? '</b>' : ''
-    usageCaption += '<br>'
+  const data = llmProviders[currentProvider]
+  if (!data) {
+      return
   }
-  usageDiv.innerHTML = usageCaption
-  usageDiv.style.display = 'block'
+  const priceInput = computePrice(inputTokens, data.inputPrice)
+  const priceOutput = computePrice(outputTokens, data.outputPrice)
+  const priceTotal = (priceInput + priceOutput)
+  costSpan.textContent = `${formatPrice(priceTotal)}`
 }
 
 const SYSTEM_PROMPT = 'You are a helpful assistant and only return the result without extra explanation.'
@@ -1079,10 +1073,19 @@ function findCaptionAt(time) {
     return res
 }
 
+function getCachedSummary(json, languageCode = 'en') {
+  if (json && json[languageCode] && json[languageCode].summary) {
+    console.log('cached summary')
+    return json[languageCode].summary
+  }
+  return null
+}
+
 async function getSummary(json, videoId, transcript, languageCode = 'en', vocab) {
-    if (json && json[languageCode] && json[languageCode].summary) {
+    let cachedSummary = getCachedSummary(json, languageCode)
+    if (cachedSummary) {
         console.log('cached summary')
-        return json[languageCode].summary
+        return cachedSummary
     }
     const summaryPrompt = `
   - write a very short summary of the following video transcript
@@ -1394,7 +1397,7 @@ async function punctuate(videoId, languageCode = 'en') {
       option.selected = l === languageCode
       selectLanguage.appendChild(option)
     }
-    selectLanguage.onchange = () => window.location.href = './?id=' + videoId + '&language=' + selectLanguage.value + (groqModel ? '&model=' + groqModel : '')
+    selectLanguage.onchange = () => window.location.href = './?id=' + videoId + '&language=' + selectLanguage.value + (currentProvider ? '&model=' + currentProvider : '')
 
     await localforage.setItem(videoId, json)
     transcript = json[languageCode].chunks.map(c => c.text).join(' ')
@@ -1406,14 +1409,28 @@ async function punctuate(videoId, languageCode = 'en') {
     const originalWithParagraphs = chunkText(transcript, 64).join('\n')
     const alignedOriginalTimes = testDiff(wordTimes, originalWithParagraphs)
     buildWords(alignedOriginalTimes, originalDiv)
+
+    let startTime = Date.now()
+
+    let durationInterval = setInterval(() => {
+      const endTime = Date.now()
+      durationSpan.textContent = msToTime(endTime - startTime)
+  
+    }, 1000)
     vocab = await createVocabulary(json, videoId, videoTitle + ' ' + videoDescription, languageCode)
     //computeSummary(json, videoId, transcript, languageCode, vocab)
+    let cachedSummary = getCachedSummary(json, languageCode)
+    if (cachedSummary) {
+      summary.innerHTML = marked(cachedSummary)
+    }
     punctuatedDiv.innerHTML = '<p>' + spin('Transcribing...') + '</p>'
-    let startTime = Date.now()
     const cachedPunctuatedText = json[languageCode].punctuatedText
     if (cachedPunctuatedText) {
         console.log('cached punctuatedText')
-        usageDiv.textContent = 'Used cached data (no cost)'
+        updateEstimatedPrice(0,0,0,0)
+        apiCallsSpan.textContent = '0'
+        clearInterval(durationInterval)
+        durationSpan.textContent = '0:00'
         let punctuatedText = cachedPunctuatedText
         let punctuatedTimes = testDiff(wordTimes, punctuatedText)
         punctuatedDiv.innerHTML = ''
@@ -1436,6 +1453,7 @@ async function punctuate(videoId, languageCode = 'en') {
     } else if (res.length === 1) {
         let punctuatedText = res[0]
         let endTime = Date.now()
+        clearInterval(durationInterval)
         durationSpan.textContent = msToTime(endTime - startTime)
         json[languageCode].punctuatedText = punctuatedText
         localforage.setItem(videoId, json)
@@ -1463,6 +1481,7 @@ async function punctuate(videoId, languageCode = 'en') {
         punctuatedText += ' ' + fragments[i] + ' ' + parts[i].right
     }
     punctuatedText = punctuatedText.replace(/,\s+/g, ', ')
+    clearInterval(durationInterval)
     let endTime = Date.now()
     durationSpan.textContent = msToTime(endTime - startTime)
     json[languageCode].punctuatedText = punctuatedText
@@ -1579,15 +1598,23 @@ async function updateModel(newProvider) {
   }
 }
 
-window.updateModel = updateModel
-
 clearCacheBtn.onclick = async () => {
   await window.localforage.removeItem(videoId)
   window.location.reload()
 }
 
+for (let l in llmProviders) {
+  let option = document.createElement('option')
+  option.value = l
+  option.textContent = l
+  option.selected = l === currentProvider
+  selectProvider.appendChild(option)
+}
+selectProvider.onchange = () => updateModel(selectProvider.value)
+
 summaryBtn.onclick = () => {
   summaryBtn.disabled = true
+  summaryBtn.textContent = 'Summarizing...'
   computeSummary(json, videoId, transcript, languageCode, vocab)
 }
 let searchTerm = params.get('q')

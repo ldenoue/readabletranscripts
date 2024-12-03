@@ -43,19 +43,30 @@
         <a href="./"><i class="btn fa-solid fa-home"></i></a>
         <b id="vtitle"></b>
         <a id="vurl" target="_blank" href=""></a>
-        <div><span id="vduration">--:--</span> API: <span id="apiCallsSpan"></span> Tokens: <span id="totalTokensSpan"></span> Time: <span id="durationSpan">--:--</span></div>
-        <div><span id="usageDiv"></span> <a title="Refresh (clears cached data for this video)" href="#" id="clearCacheBtn"><i class="fa-solid fa-rotate-left"></i></a></div>
+        <div>
+          <span id="vduration">--:--</span>
+        </div>
+        <div class="centered">
+          <div id="usageDiv">
+            <span id="durationSpan"></span>
+            API <span id="apiCallsSpan"></span>
+            Tokens <span id="totalTokensSpan"></span>
+            <span id="costSpan"></span>
+            <a title="Refresh (clears cached data for this video)" href="#" id="clearCacheBtn"><i class="fa-solid fa-rotate-left"></i></a>
+          </div>
+        </div>
+        <select id="selectProvider"></select>
         <div id="marker"></div>
         <div id="dd">
           <div id="playercontainer">
             <div id="player"></div>
           </div>
           <img id="thumb">
-          <div id="summary"><button id="summaryBtn">Summary</button></div>
         </div>
       </div>
       <div class="column" id="col2">
         <div class="info">LLM-corrected transcript</div>
+        <div id="summary"><a href="#" id="summaryBtn">Request Summary</a></div>
         <div id="punctuatedDiv"></div>
       </div>
       <div class="column" id="col3">
