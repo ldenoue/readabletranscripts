@@ -166,6 +166,9 @@ input[type=color] {
     max-width: fit-content;
 }
 
+.llm {
+  color: red;
+}
 .generating {
   display: none;
 }

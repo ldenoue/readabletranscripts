@@ -9,22 +9,19 @@ const groqModels = ['llama-3.1-8b-instant']
 const deepInfraModels = ['meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo']
 
 const API_KEY = window.localStorage.API_KEY
-/*if (API_KEY) {
-  apiKey.value = API_KEY
-}*/
 
-const model = await getGenerativeModel(API_KEY, { model: geminiModel, generationConfig: { temperature: 0.0} });
-window.model = model
+const jsonGenerationConfig = {
+  temperature: 0,
+  "response_mime_type": "application/json",
+}
+const model = await getGenerativeModel(API_KEY, { model: geminiModel, generationConfig: { temperature: 0.0 } });
+const jsonModel = await getGenerativeModel(API_KEY, { model: geminiModel, generationConfig: jsonGenerationConfig });
 
 const GROQ_API_KEY = window.localStorage.GROQ_API_KEY
-/*if (GROQ_API_KEY) {
-  groqApiKey.value = GROQ_API_KEY
-}*/
 
 let openai = null
 const DEEP_INFRA_API_KEY = window.localStorage.DEEP_INFRA_API_KEY
 if (DEEP_INFRA_API_KEY) {
-  //deepInfraApiKey.value = DEEP_INFRA_API_KEY
   openai = new OpenAI({
     apiKey: DEEP_INFRA_API_KEY,
     baseURL: 'https://api.deepinfra.com/v1/openai',
@@ -40,7 +37,6 @@ const followingAudio = true
 const chapterDelta = 1000
 let chapters = []
 let jumped = null
-let currentCaption = ['Click to play']
 let userJumps = false
 let videoId = params.get('id') || params.get('v')
 let highlights = []
@@ -124,8 +120,6 @@ function audioTimeUpdate(timeSeconds) {
         for (let w of words) {
             if (!w.start)
                 continue
-            //const delta = 400
-            //const highlight = w.start >= (time - delta) && w.end <= time + delta * 3
             const delta = 1000
             const highlight = w.start >= (time - delta) && w.end <= time + delta
             //let c = []
@@ -133,17 +127,11 @@ function audioTimeUpdate(timeSeconds) {
                 w.classList.add('highlighted')
                 lastHighlightedWord = w
                 lastHighlightedParagraph = p
-                //console.log('highlight',w)
-                //c.push(w.textContent)
             }
             if (!highlight && w.classList.contains('highlighted'))
                 w.classList.remove('highlighted')
         }
     }
-    /*currentCaption = [...punctuatedDiv.querySelectorAll('.highlighted')].map(a => a.textContent)
-    if (currentCaption.length === 0 && !isPlaying())
-        currentCaption = ['Click to Play']
-    console.log(currentCaption)*/
     for (let i = 0; i < ps.length; i++) {
         let p = ps[i]
         if (i !== last) {
@@ -250,7 +238,11 @@ function displayItems(jsonItems) {
   for (let item of jsonItems) {
       let d = document.createElement('div')
       d.className = 'r'
-      d.innerHTML = `<a href="./?id=${item.id || item.videoId}"><img src="https://img.youtube.com/vi/${item.id || item.videoId}/mqdefault.jpg"></a><div><a href="?id=${item.id || item.videoId}">${item.name || item.title}</a><div>${item.duration} - ${item.publishedTimeText || item.published || new Date(item.publishDate).toLocaleDateString()}</div></div><br>`
+      let duration = item.duration
+      if (typeof duration === 'number') {
+        duration = msToTime(duration * 1000)
+      }
+      d.innerHTML = `<a href="./?id=${item.id || item.videoId}"><img src="https://img.youtube.com/vi/${item.id || item.videoId}/mqdefault.jpg"></a><div><a href="?id=${item.id || item.videoId}">${item.name || item.title}</a><div>${duration} - ${item.publishedTimeText || item.published || new Date(item.publishDate).toLocaleDateString()}</div></div><br>`
       items.appendChild(d)
   }
   items.style.display = 'flex'
@@ -273,6 +265,7 @@ function timeout(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+let apiCalls = 0
 let outputTokens = 0
 let inputTokens = 0
 let totalTokens = 0
@@ -309,6 +302,23 @@ function formatPrice(price) {
     return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 5, style: "currency", currency: "USD" })
 }
 
+async function llmChapters(text) {
+  let paragraphs = text.split('\n\n')
+  let items = paragraphs.map((p,idx) => idx + '=' + p.trim())
+  let res = await getJSONAnswer('Given the list of numbered paragraphs, group paragraphs into meaningful chapters and return a list with chapter_name and first_paragraph_number of that chapter. Chapters should always contain several paragraphs. Here is the list of numbered paragraphs: ' + items)
+  res  = JSON.parse(res)
+  let elements = [...punctuatedDiv.querySelectorAll('.p')]
+  for (let item of res) {
+    const n = +item.first_paragraph_number
+    const name = item.chapter_name
+    const header = document.createElement('div')
+    header.className = 'header llm'
+    header.textContent = name
+    elements[n].parentElement.insertBefore(header, elements[n])
+  }
+}
+
+window.llmChapters = () => llmChapters(json.en.punctuatedText)
 function updateEstimatedPrice( inputTokens, outputTokens, totalTokens, totalPrice = null) {
   totalTokensSpan.textContent = totalTokens
   let usageCaption = ''
@@ -386,6 +396,15 @@ async function getGroq(prompt, systemPrompt = SYSTEM_PROMPT) {
 
 window.getGroq = getGroq
 
+async function getJSONAnswer(prompt) {
+  const res = await jsonModel.generateContent([prompt])
+  inputTokens += res.response.usageMetadata.promptTokenCount
+  outputTokens += res.response.usageMetadata.candidatesTokenCount
+  totalTokens += res.response.usageMetadata.totalTokenCount
+  updateEstimatedPrice(inputTokens, outputTokens, totalTokens)
+  return res.response.text()
+}
+
 async function getModelAnswer(prompt, maxretry = 4, retryDelayMs = 4000) {
     if (!API_KEY) {
       summary.innerHTML = '<p>Please set your API KEY on the <a href="./">home page</a><p>'
@@ -393,6 +412,8 @@ async function getModelAnswer(prompt, maxretry = 4, retryDelayMs = 4000) {
     }
 
     for (let i = 0; i < maxretry; i++) {
+        apiCalls++
+        apiCallsSpan.textContent = apiCalls
         try {
             let res = null
             if (deepInfraModels.indexOf(currentProvider) !== -1) {
@@ -409,7 +430,7 @@ async function getModelAnswer(prompt, maxretry = 4, retryDelayMs = 4000) {
             }
         } catch (error) {
             console.log(error)
-            if (error.message && error.message.indexOf('API_KEY_INVALID')) {
+            if (error.message && error.message.indexOf('API_KEY_INVALID') !== -1) {
               console.log('error: API_KEY_INVALID')
               return null
             }
@@ -424,11 +445,12 @@ function languageName(json, lang) {
 }
 
 const chunkSize = 512 // longer context makes the AI hallucinate more
+//const chunkSize = 1200 // longer context makes the AI hallucinate more
 async function punctuateText(json, c, vocab = '', lang = 'en', p = null) {
     const oldprompt = `- fix the grammar and typos of the given video text transcript
   - do not rephrase: keep the original wording but fix errors
   - write in the ${languageName(json, lang)} language
-  - please add paragraphs where appropriate
+  - add paragraphs where appropriate
   - do not add paragraphs numbers
   - use this list of words as context to help you fix typos: """${vocab}"""
   - answer with plain text only
@@ -464,7 +486,9 @@ ${c}
 }
 
 async function mergeSentences(json, a, b, vocab, languageCode = 'en') {
-    let res = await punctuateText(json, clean(a) + ' ' + clean(b), vocab, languageCode, `please fix this sentence, without paragraphrasing, write in ${languageName(json, languageCode)}: `)
+    const cleanA = clean(a)
+    const cleanB = clean(b)
+    let res = await punctuateText(json, cleanA + ' ' + cleanB, vocab, languageCode, `please fix this sentence, without paragraphrasing, write in ${languageName(json, languageCode)}: `)
     res = res.replace(/\s+/g, ' ')
     return res
 }
@@ -484,18 +508,19 @@ function findChunkStart(b) {
 }
 
 function clean(a) {
-    return a.toLowerCase().replace(/[^\w]/g, ' ')
+    return a.toLowerCase().replace(/[^\w]/g, ' ').replace(/\s+/g,' ').trim()
 }
 
 function getWords(text) {
     let paragraphs = text.split('\n').filter(p => p > '')
     let res = []
     for (let p of paragraphs) {
-        let words = p.split(/[\s-]+/).map(a => new Object({ o: a, w: a.trim().toLowerCase().replace(/\W+/g, '') }))
+        //let words = p.split(/[\s-]+/).map(a => new Object({ o: a, w: a.trim().toLowerCase().replace(/\W+/g, '') }))
+        let words = p.split(/[\s-]+/).map(a => new Object({ o: a, w: keepCharacters(a) }))
         if (words.length > 0 && words[0].o > '') {
             words[0].p = true
         }
-        res = res.concat(words)
+        res = res.concat(words.filter(w => w.w > ''))
     }
     return res
 }
@@ -527,7 +552,7 @@ function testDiff(wordTimes = [], punctuated = '') {
     let one = onea.join('\n')
 
     let othera = getWords(punctuated)
-    let other = othera.map(w => w.w).join('\n') + '\n'
+    let other = othera.map(w => w.w).join('\n')
     let map = []
     let diff = Diff.diffLines(one, other);
     let source = 0
@@ -548,6 +573,7 @@ function testDiff(wordTimes = [], punctuated = '') {
             }
         }
     }
+    console.log('added=',added, 'removed=', removed)
     let idx = 0
     for (let i of map) {
         if (i !== -1) {
@@ -1328,6 +1354,7 @@ function showError(msg) {
 let transcript = null
 let vocab = null
 async function punctuate(videoId, languageCode = 'en') {
+    apiCalls = 0
     totalPrice = 0
     inputTokens = 0
     outputTokens = 0
