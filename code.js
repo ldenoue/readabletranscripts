@@ -864,7 +864,7 @@ function computeChapters(description) {
             let text = l.replace(reg, '') // https://www.youtube.com/watch?v=SOxYgUIVq6g captions at the end
             if (text.indexOf('- ') === 0)
                 text = text.substring(2)
-            text = text.replace(/[_\-–]+/g, '').trim()
+            text = text.replace(/[_\–]+/g, '').trim() // removed - because Step-by-Step in wBpHQgMrSnE
             text = text.replace(/\(?((\d\d?:)?\d\d?:\d\d)\)?/,'').trim() // remove second timestamp V_0dNE-H2gw
             if (text.length === 0 && lineNumber < lines.length - 1 && !lines[lineNumber + 1].match(reg))
                 text = lines[lineNumber + 1].trim()
