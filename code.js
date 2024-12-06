@@ -1287,44 +1287,19 @@ function formatXML(xml) {
             dur = 0.01
         let end = start + dur
         let text = unescapeXml(t.textContent, docParser)
-        text = removeDuplicates(text).replace(/\s+/g, ' '); // Laurent added replace
+        text = text.replace(/\s+/g, ' ')
         if (text > '') {
             chunks.push({ text, start, end, dur })
         }
     }
     return chunks
 }
-function removeDuplicates(text) {
-    //console.log(text)
-    let result = text.replace(/\b([\w']+)\s+\1\b/g, '$1');
-    result = result.replace(/\[.*\].?/g, '') // remove [MUSIC] etc
-    //result = result.replace(/\[Music].?/gi,'') // remove [MUSIC] etc
-    //console.log('without[music]=',result)
-    if (result === 'um' || result === 'uh' || result === 'um,' || result === 'uh,')
-        return ''
-    if (result.indexOf('um ') === 0)
-        result = result.substring(2)
-    if (result.indexOf('um, ') === 0)
-        result = result.substring(3)
-    if (result.endsWith(' um'))
-        result = result.substring(0, result.length - 2)
-    result = result.replaceAll(' um ', ' ')
-    result = result.replaceAll(' um, ', ' ')
-    if (result.indexOf('uh ') === 0)
-        result = result.substring(2)
-    if (result.indexOf('uh, ') === 0)
-        result = result.substring(3)
-    if (result.endsWith(' uh'))
-        result = result.substring(0, result.length - 2)
-    result = result.replaceAll(' uh ', ' ')
-    result = result.replaceAll(' uh, ', ' ')
-    //console.log('res=',result)
-    return result
-}
+
 function unescapeXml(escapedXml, parser) {
     const doc = parser.parseFromString(escapedXml, "text/html")
     return doc.documentElement.textContent;
 }
+
 async function fetchData(url, json = false) {
   try {
     const response = await fetch(url)
@@ -1482,10 +1457,8 @@ async function punctuate(videoId, languageCode = 'en') {
     }
     //let fragments = await Promise.all(merges)
     const fix = 'please fix types and punctuation in each line, independently. Answer as a JSON array with "sentence_fixed" as the key for each sentence:\n' + sentencesToFix.join('\n')
-    console.log(fix)
     let fragments = await getJSONAnswer(fix)
     fragments = JSON.parse(fragments)
-    console.log(fragments)
     let punctuatedText = parts[0].left
     for (let i = 0; i < fragments.length; i++) {
         punctuatedText += ' ' + fragments[i].sentence_fixed + ' ' + parts[i].right

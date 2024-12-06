@@ -644,7 +644,7 @@ h2, h1 {
   top: 0;
 }
 
-.centered {
+.topcenteredbanner {
   position: fixed;
   left: 0;
   top: 0;
@@ -654,6 +654,7 @@ h2, h1 {
   align-items: center;
   width: 100%;
   pointer-events: none;
+  z-index: 1;
 }
 #usageDiv {
   pointer-events: all;
@@ -683,17 +684,17 @@ h2, h1 {
   .fa-solid {
     display: none;
   }
-    .row {
-        display: block;
-    }
-    #col1, #col2 {
-        width: 100%;
-        padding-top: 0!important;
-    }
-    #col3 {
-        display: none;
-    }
-    .github-corner, #highlighter, #usageDiv {
-      display: none;
-    }
+  .row {
+    display: block;
+  }
+  #col1, #col2 {
+    width: 100%;
+    padding-top: 0!important;
+  }
+  #col3 {
+    display: none;
+  }
+  .github-corner, #highlighter, #usageDiv {
+    display: none;
+  }
 }
