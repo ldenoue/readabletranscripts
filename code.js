@@ -1197,14 +1197,15 @@ function getTranscriptURLAndLanguage(yt, preferredLanguage = 'en') {
     }
     return { defaultLanguage, transcripts: obj, translationLanguages }
 }
-async function getLocal(videoId, languageCode) {
+async function getLocal(videoId, preferredLanguageCode) {
     const data = await getUserData(videoId)
-    if (data && data[languageCode]) {
+    if (data && data[preferredLanguageCode]) {
         return data
     }
     try {
       const remoteData = await fetchData('./examples/' + videoId + '.json', true)
-      if (remoteData && remoteData[languageCode]) {
+      if (remoteData && remoteData['en']) {
+        languageCode = 'en'
         return remoteData
       }
     } catch (e) {
