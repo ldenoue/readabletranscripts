@@ -1396,7 +1396,6 @@ async function punctuate(videoId, preferedLanguageCode) {
     let durationInterval = setInterval(() => {
       const endTime = Date.now()
       durationSpan.textContent = msToTime(endTime - startTime)
-  
     }, 1000)
     vocab = await createVocabulary(json, videoId, videoTitle + ' ' + videoDescription, languageCode)
     //computeSummary(json, videoId, transcript, languageCode, vocab)
@@ -1427,7 +1426,8 @@ async function punctuate(videoId, preferedLanguageCode) {
         let p = punctuateText(json, c, vocab, languageCode)
         promises.push(p)
     }
-    let res = await Promise.all(promises);
+    let res = await Promise.all(promises)
+    console.log('paragraphs done')
     if (res.length === 0) {
         punctuatedDiv.innerHTML = 'No transcript was found'
         return
@@ -1443,7 +1443,8 @@ async function punctuate(videoId, preferedLanguageCode) {
         buildWords(punctuatedTimes)
         return
     }
-    //let merges = []
+    let s = Date.now()
+    let merges = []
     let parts = []
     let sentencesToFix = []
     for (let i = 0; i < res.length - 1; i++) {
@@ -1456,18 +1457,23 @@ async function punctuate(videoId, preferedLanguageCode) {
         parts.push({ left: a.paragraph, right: b.paragraph })
         const sentence = clean(a.end) + ' ' + clean(b.start)
         sentencesToFix.push('- ' + sentence)
-        //let merged = mergeSentences(json, a.end, b.start, vocab, languageCode)
-        //merges.push(merged)
+        console.log(sentence)
+        let merged = mergeSentences(json, a.end, b.start, vocab, languageCode)
+        merges.push(merged)
     }
-    //let fragments = await Promise.all(merges)
-    const fix = 'please fix types and punctuation in each line, independently. Answer as a JSON array with "sentence_fixed" as the key for each sentence:\n' + sentencesToFix.join('\n')
-    let fragments = await getJSONAnswer(fix)
-    fragments = JSON.parse(fragments)
+    console.log('merging sentences', sentencesToFix.length)
+    let fragments = await Promise.all(merges)
+    /*const fix = 'please fix types and punctuation in each line, independently. Answer as a JSON array with "sentence_fixed" as the key for each sentence:\n' + sentencesToFix.join('\n')
+    let fragments = await getJSONAnswer(fix)*/
+    let duration = Date.now() - s
+    console.log('merged sentences in',duration)
+    //fragments = JSON.parse(fragments)
     let punctuatedText = parts[0].left
     for (let i = 0; i < fragments.length; i++) {
-        punctuatedText += ' ' + fragments[i].sentence_fixed + ' ' + parts[i].right
+        //punctuatedText += ' ' + fragments[i].sentence_fixed + ' ' + parts[i].right
+        punctuatedText += ' ' + fragments[i] + ' ' + parts[i].right
     }
-    punctuatedText = punctuatedText.replace(/,\s+/g, ', ')
+    punctuatedText = punctuatedText.replace(/,\s+/g, ', ').replace(/\s+/g,' ')
     clearInterval(durationInterval)
     let endTime = Date.now()
     durationSpan.textContent = msToTime(endTime - startTime)
