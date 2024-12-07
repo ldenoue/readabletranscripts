@@ -638,13 +638,13 @@ h2, h1 {
 }
 
 .github-corner {
-  z-index: 3;
+  z-index: 0;
   position: fixed;
   right: 0;
   top: 0;
 }
 
-.topcenteredbanner {
+.centeredbanner {
   position: fixed;
   left: 0;
   top: 0;
