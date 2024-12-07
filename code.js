@@ -32,7 +32,7 @@ if (DEEP_INFRA_API_KEY) {
 const params = new URLSearchParams(window.location.search)
 let currentProvider = params.get('model') || geminiModel
 
-const languageCode = params.get('language') || 'en'
+let languageCode = params.get('language')// || 'en'
 const followingAudio = true
 const chapterDelta = 1000
 let chapters = []
@@ -1197,7 +1197,7 @@ function getTranscriptURLAndLanguage(yt, preferredLanguage = 'en') {
     }
     return { defaultLanguage, transcripts: obj, translationLanguages }
 }
-async function getLocal(videoId, languageCode = 'en') {
+async function getLocal(videoId, languageCode) {
     const data = await getUserData(videoId)
     if (data && data[languageCode]) {
         return data
@@ -1267,7 +1267,6 @@ async function getLocal(videoId, languageCode = 'en') {
     obj.thumbnail = `https://img.youtube.com/vi/${obj.videoId}/mqdefault.jpg`
     const { defaultLanguage, transcripts, translationLanguages } = getTranscriptURLAndLanguage(json, languageCode)
     obj.translationLanguages = translationLanguages
-    const languageCodes = Object.keys(transcripts)
     obj.defaultLanguage = defaultLanguage ?? 'en'
     for (let languageCode in transcripts) {
         const chunks = await getChunks(transcripts[languageCode])
@@ -1333,14 +1332,18 @@ function showError(msg) {
 
 let transcript = null
 let vocab = null
-async function punctuate(videoId, languageCode = 'en') {
+async function punctuate(videoId, preferedLanguageCode) {
     apiCalls = 0
     totalPrice = 0
     inputTokens = 0
     outputTokens = 0
     totalTokens = 0
     updateEstimatedPrice(inputTokens, outputTokens, totalTokens, totalPrice)
-    let json = await getLocal(videoId, languageCode)
+    let json = await getLocal(videoId, preferedLanguageCode)
+    if (!preferedLanguageCode && json && json.defaultLanguage) {
+      languageCode = json.defaultLanguage
+    }
+    console.log('languageCode',languageCode, preferedLanguageCode)
     window.json = json
     if (json.error) {
         container.style.display = 'none'
