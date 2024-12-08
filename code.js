@@ -711,10 +711,10 @@ function buildWords(words, r = punctuatedDiv) {
             continue
         let span = document.createElement('span')
         let codeDetected = false
-        if (w.o.match(/^\*(.*)\*/)) {
-          w.o = w.o.replaceAll('*','')
-          span.classList.add('bold')
-        }
+        //if (w.o.match(/^\*(.*)\*/)) {
+        //  w.o = w.o.replaceAll('*','')
+        //  span.classList.add('bold')
+        //}
         if (w.o.indexOf('```') !== -1) {
           codeDetected = true
           if (!inCode)
@@ -729,6 +729,10 @@ function buildWords(words, r = punctuatedDiv) {
             w.o = w.o.substring(2)
             inBold = true
           }
+          if (w.o.indexOf('*') === 0) {
+            w.o = w.o.substring(1)
+            inBold = true
+          }
           if (inBold)
               span.classList.add('bold')
           if (w.o.indexOf('`') > 0) {
@@ -738,6 +742,14 @@ function buildWords(words, r = punctuatedDiv) {
           if (w.o.indexOf('**') > 0) {
             inBold = false
             w.o = w.o.replaceAll('**','')
+          }
+          if (inBold) {
+            let idx = w.o.indexOf('*')
+            let len = w.o.length
+            if (idx !== -1 && (idx === len - 1 || idx === len - 2)) {
+              w.o = w.o.replaceAll('*','')
+              inBold = false
+            }
           }
         }
         const caption = w.o + ' '
@@ -1473,7 +1485,7 @@ async function punctuate(videoId, preferedLanguageCode) {
         //punctuatedText += ' ' + fragments[i].sentence_fixed + ' ' + parts[i].right
         punctuatedText += ' ' + fragments[i] + ' ' + parts[i].right
     }
-    punctuatedText = punctuatedText.replace(/,\s+/g, ', ').replace(/\s+/g,' ')
+    punctuatedText = punctuatedText.replace(/,\s+/g, ', ')
     clearInterval(durationInterval)
     let endTime = Date.now()
     durationSpan.textContent = msToTime(endTime - startTime)
