@@ -318,7 +318,25 @@ async function llmChapters(text) {
   }
 }
 
+async function getChapters(chunks, languageCode = 'en') {
+  const transcript = chunks.map(c => c.start + ': ' + c.text).join('\n')
+  const chaptersPrompt = `
+- Please break down the following transcript into sections, providing a concise title for each section.
+- Please write the titles in ${languageName(json, languageCode)},
+- Please return the result as a JSON array with 'title', 'start'.
+Here is the text:
+"""${transcript}"""`
+  const result = await getJSONAnswer(chaptersPrompt)
+  if (!result)
+      return []
+  const chapters = JSON.parse(result)
+  console.log(chapters)
+  const finalChapters = chapters.map(c => new Object({text: c.title, start: parseInt(c.start)}))
+  return finalChapters
+}
+
 window.llmChapters = () => llmChapters(json.en.punctuatedText)
+window.getChapters = () => getChapters(json.en.chunks)
 function updateEstimatedPrice( inputTokens, outputTokens, totalTokens) {
   totalTokensSpan.textContent = totalTokens
   const data = llmProviders[currentProvider]
