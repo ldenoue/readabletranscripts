@@ -321,8 +321,9 @@ async function llmChapters(text) {
 async function getChapters(chunks, languageCode = 'en') {
   const transcript = chunks.map(c => c.start + ': ' + c.text).join('\n')
   const chaptersPrompt = `
-- Please break down the following transcript into sections, providing a concise title for each section.
-- Please write the titles in ${languageName(json, languageCode)},
+- Please break down the following transcript into topic changes, providing a concise title for each section.
+- Make sure the sections are not too short.
+- Please write the titles in ${languageName(json, languageCode)}.
 - Please return the result as a JSON array with 'title', 'start'.
 Here is the text:
 """${transcript}"""`
@@ -330,7 +331,6 @@ Here is the text:
   if (!result)
       return []
   const chapters = JSON.parse(result)
-  console.log(chapters)
   const finalChapters = chapters.map(c => new Object({text: c.title, start: parseInt(c.start)}))
   return finalChapters
 }
@@ -1381,8 +1381,10 @@ async function punctuate(videoId, preferedLanguageCode) {
         items.innerHTML = '<b>No transcript for this video</b>'
         return
     }
-    if (!json.chapters) {
-      json.chapters = []
+    if (!json.chapters || json.chapters.length === 0) {
+      console.log('computing chapters')
+      json.chapters = await getChapters(json[languageCode].chunks)
+      console.log('chapters=',json.chapters)
     }
     chapters = JSON.parse(JSON.stringify(json.chapters))
     createToc(chapters)
