@@ -3,13 +3,13 @@
 This repo shows how to fetch the raw YouTube transcripts and use the Gemini Flash 8B API to format them.
 Made by [@ldenoue](https://twitter.com/ldenoue)
 
-[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/ldenoue)
-
 # How to use
 
-Try the demo at https://ldenoue.github.io/readabletranscripts and type any search term
+The demo at https://ldenoue.github.io/readabletranscripts lists sample videos in case you don't have or want to enter your Gemini API key.
 
-Try locally `python3 -m http.server` and open `http://localhost:8000`
+I also offer this LLM-based Pro version at https://www.appblit.com/scribe and you get 120 free minutes on signup.
+
+Developers, try locally `python3 -m http.server` and open `http://localhost:8000`
 
 Set your Gemini API KEY (create a [Free Gemini API Key](https://aistudio.google.com/apikey))
 Note: The key is used https://github.com/ldenoue/readabletranscripts/blob/f5ea5804ed7fb5570be780129c7d21e7a1b367e5/code.js#L159 to fetch Gemini's answers from your browser.

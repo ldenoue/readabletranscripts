@@ -319,7 +319,7 @@ async function llmChapters(text) {
 }
 
 async function getChapters(chunks, languageCode = 'en') {
-  const transcript = chunks.map(c => c.start + ': ' + c.text).join('\n')
+  const transcript = chunks.map(c => parseInt(c.start) + ': ' + c.text).join('\n')
   const chaptersPrompt = `
 - Please break down the following transcript into topic changes, providing a concise title for each section.
 - Make sure the sections are not too short.
@@ -331,7 +331,7 @@ Here is the text:
   if (!result)
       return []
   const chapters = JSON.parse(result)
-  const finalChapters = chapters.map(c => new Object({text: c.title, start: parseInt(c.start)}))
+  const finalChapters = chapters.map(c => new Object({text: c.title, start: parseInt(c.start)})).sort((a,b) => a.start - b.start)
   return finalChapters
 }
 
