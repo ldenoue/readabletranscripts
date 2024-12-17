@@ -685,7 +685,7 @@ function buildWords(words, r = punctuatedDiv) {
     chapters.forEach(c => c.taken = false)
     let p = null
     let end = false
-    let inBold = false
+    //let inBold = false
     let inCode = false
 
     for (let w of words) {
@@ -733,7 +733,7 @@ function buildWords(words, r = punctuatedDiv) {
         //  w.o = w.o.replaceAll('*','')
         //  span.classList.add('bold')
         //}
-        if (w.o.indexOf('```') !== -1) {
+        /*if (w.o.indexOf('```') !== -1) {
           codeDetected = true
           if (!inCode)
             p.classList.add('code')
@@ -769,7 +769,7 @@ function buildWords(words, r = punctuatedDiv) {
               inBold = false
             }
           }
-        }
+        }*/
         const caption = w.o + ' '
         const addPlay = true
         span.textContent = caption
