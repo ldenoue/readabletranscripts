@@ -319,14 +319,15 @@ async function llmChapters(text) {
 }
 
 async function getChapters(chunks, languageCode = 'en') {
-  const transcript = chunks.map(c => parseInt(c.start) + ': ' + c.text).join('\n')
+  let lines = chunks.map(c => parseInt(c.start) + ": " + c.text.trim())
+  let transcript = lines.join('\n')
   const chaptersPrompt = `
 - Please break down the following transcript into topic changes, providing a concise title for each section.
 - Make sure the sections are not too short.
 - Please write the titles in ${languageName(json, languageCode)}.
 - Please return the result as a JSON array with 'title', 'start'.
 Here is the text:
-"""${transcript}"""`
+${transcript}`
   const result = await getJSONAnswer(chaptersPrompt)
   if (!result)
       return []
