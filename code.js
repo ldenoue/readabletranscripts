@@ -4,18 +4,18 @@ import { OpenAI} from "https://cdn.jsdelivr.net/npm/openai@4.73.1/+esm"
 
 const geminiModels = ['gemini-1.5-flash-8b']
 const geminiModel = geminiModels[0]
-
+//const geminiModel = 'gemini-2.0'
 const groqModels = ['llama-3.1-8b-instant']
 const deepInfraModels = ['meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo']
-
 const API_KEY = window.localStorage.API_KEY
 
 const jsonGenerationConfig = {
   temperature: 0,
   "response_mime_type": "application/json",
 }
-const model = await getGenerativeModel(API_KEY, { model: geminiModel, generationConfig: { temperature: 0.0 } });
+const model = await getGenerativeModel(API_KEY, { model: geminiModel, generationConfig: { /*responseModalities: ['AUDIO'],*/ temperature: 0.0 } });
 const jsonModel = await getGenerativeModel(API_KEY, { model: geminiModel, generationConfig: jsonGenerationConfig });
+const embeddingModel = await getGenerativeModel(API_KEY, { model: 'embedding-001' });
 
 const GROQ_API_KEY = window.localStorage.GROQ_API_KEY
 
@@ -36,6 +36,7 @@ let languageCode = params.get('language')// || 'en'
 const followingAudio = true
 const chapterDelta = 1000
 let chapters = []
+let ads = []
 let jumped = null
 let userJumps = false
 let videoId = params.get('id') || params.get('v')
@@ -191,42 +192,87 @@ function chunkText(text, maxWords = 4000) {
 
     return chunks;
 }
-
+async function searchYT(query, continuation = null) {
+  let item = await localforage.getItem(query)
+  const payload = {
+    query,
+    continuation,
+      "context": {
+          "client": {
+              "hl": "en",
+              "clientName": "WEB",
+              "clientVersion": "2.20210721.00.00",
+              //clientName: 'iOS',
+              //clientVersion: '19.45.4',
+              //"clientScreen": "WATCH",
+              //"mainAppWebInfo": {
+              //    "graftUrl": "/watch?v=" + videoId
+              //}
+          },
+          /*"user": {
+              "lockedSafetyMode": false
+          },
+          "request": {
+              "useSsl": true,
+              "internalExperimentFlags": [],
+              "consistencyTokenJars": []
+          }*/
+      },
+      /*"playbackContext": {
+          "contentPlaybackContext": {
+              "vis": 0,
+              "splay": false,
+              "autoCaptionsDefaultOn": false,
+              "autonavState": "STATE_NONE",
+              "html5Preference": "HTML5_PREF_WANTS",
+              "lactMilliseconds": "-1"
+          }
+      },
+      "racyCheckOk": false,
+      "contentCheckOk": false*/
+  }
+  // https://stackoverflow.com/questions/67615278/get-video-info-youtube-endpoint-suddenly-returning-404-not-found
+  const json = await postData(
+  "https://release-youtubei.sandbox.googleapis.com/youtubei/v1/search", payload)
+  if (json.error)
+    return []
+  //console.log(json)
+  let items = []
+  let token = null
+  if (json.contents && json.contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents) {
+    items = json.contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents[0].itemSectionRenderer.contents
+    token = json.contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents[1].continuationItemRenderer.continuationEndpoint.continuationCommand.token
+  } else if (json.onResponseReceivedCommands) {
+    items = json.onResponseReceivedCommands[0].appendContinuationItemsAction.continuationItems[0].itemSectionRenderer.contents
+    token = json.onResponseReceivedCommands[0].appendContinuationItemsAction.continuationItems[1].continuationItemRenderer.continuationEndpoint.continuationCommand.token
+  }
+  let results = []
+  for (let i of items) {
+    if (i.videoRenderer && i.videoRenderer.publishedTimeText) {
+      let r = i.videoRenderer
+      let channelName = null
+      let channelId = null
+      if (r.ownerText && r.ownerText.runs && r.ownerText.runs.length > 0) {
+        const run = r.ownerText.runs[0]
+        channelName = run.text
+        if (run && run.navigationEndpoint && run.navigationEndpoint.browseEndpoint && run.navigationEndpoint.browseEndpoint.canonicalBaseUrl) {
+          channelId = run.navigationEndpoint.browseEndpoint.canonicalBaseUrl.substring(1)
+        }
+      }
+      let obj = { channelName, channelId, id: r.videoId, name: r.title.runs[0].text, duration: r.lengthText.simpleText, publishedTimeText: r.publishedTimeText.simpleText}
+      results.push(obj)
+    }
+  }
+  return results
+}
 async function ytsr(q) {
     if (!q)
         return {}
     let trimmed = q.trim()
     if (!(trimmed.length > 0))
         return {}
-    try {
-        let response = await fetchData('https://vercel-scribe.vercel.app/api/hello?url=' + encodeURIComponent('https://www.youtube.com/search?q=' + trimmed), true)
-        let html = response.data
-        let preamble = "var ytInitialData = {"
-        let idx1 = html.indexOf(preamble)
-        let sub = html.substring(idx1)
-        let idx2 = sub.indexOf("};")
-        let ytInitialData = sub.substring(0, idx2 + 1)
-        let jsonString = ytInitialData.substring(preamble.length - 1)
-        let json = JSON.parse(jsonString)
-        let res = json.contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents
-        let results = []
-        for (let r of res) {
-            if (!(r.itemSectionRenderer && r.itemSectionRenderer.contents))
-                continue
-            let items = r.itemSectionRenderer.contents
-            for (let i of items) {
-                if (i.videoRenderer && i.videoRenderer.publishedTimeText) {
-                    let r = i.videoRenderer
-                    let obj = { id: r.videoId, name: r.title.runs[0].text, duration: r.lengthText.simpleText, publishedTimeText: r.publishedTimeText.simpleText }
-                    results.push(obj)
-                }
-            }
-        }
-        return { items: results }
-    } catch (e) {
-        console.log('setSearch error', e)
-        return {}
-    }
+    const items = await searchYT(trimmed)
+    return { items }
 }
 
 function spin(text = '') {
@@ -302,22 +348,6 @@ function formatPrice(price) {
     return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 5, style: "currency", currency: "USD" })
 }
 
-async function llmChapters(text) {
-  let paragraphs = text.split('\n\n')
-  let items = paragraphs.map((p,idx) => idx + '=' + p.trim())
-  let res = await getJSONAnswer('Given the list of numbered paragraphs, group paragraphs into meaningful chapters and return a list with chapter_name and first_paragraph_number of that chapter. Chapters should always contain several paragraphs. Here is the list of numbered paragraphs: ' + items)
-  res  = JSON.parse(res)
-  let elements = [...punctuatedDiv.querySelectorAll('.p')]
-  for (let item of res) {
-    const n = +item.first_paragraph_number
-    const name = item.chapter_name
-    const header = document.createElement('div')
-    header.className = 'header llm'
-    header.textContent = name
-    elements[n].parentElement.insertBefore(header, elements[n])
-  }
-}
-
 async function getChapters(chunks, languageCode = 'en') {
   let lines = chunks.map(c => parseInt(c.start) + ": " + c.text.trim())
   let transcript = lines.join('\n')
@@ -336,8 +366,153 @@ ${transcript}`
   return finalChapters
 }
 
-window.llmChapters = () => llmChapters(json.en.punctuatedText)
+async function getAds(chunks) {
+  let lines = chunks.map(c => parseInt(c.start) + ": " + c.text.trim())
+  let transcript = lines.join('\n')
+  const adsPrompt = `Please identify lines in the following transcript that could be ads.
+  Return the start, end and text as JSON.
+  Here is the transcript:
+${transcript}`
+  const result = await getJSONAnswer(adsPrompt)
+  if (!result)
+      return []
+  try {
+    const ads = JSON.parse(result)
+    const finalAds = ads.map(c => new Object({text: c.text, start: parseInt(c.start), end: parseInt(c.end)})).sort((a,b) => a.start - b.start)
+    return finalAds
+  } catch (e) {
+    console.log('error getAds',e)
+    return []
+  }
+}
+
+async function getCorrected(chunks) {
+  let lines = chunks.map(c => parseInt(c.start) + ": " + c.text.trim())
+  const short = lines.join('\n')
+  const res = await getJSONAnswer('please fix typos and add punctuation marks in the following transcript. Preserve the start times: ' + short)
+  return res
+}
+
+async function getTopics(chunks) {
+  let lines = chunks.map(c => parseInt(c.start) + ": " + c.text.trim())
+  const short = lines.join('\n')
+  const res = await getJSONAnswer('Given the following video transcript, please identify lines that correspond to topic changes. Return the lines as is. Here is the transcript: ' + short)
+  return res
+}
+
+async function getEmbedding(text) {
+  const result = await embeddingModel.embedContent(text);
+  return result.embedding;
+}
+
+async function getAllSentenceEmbeddings(sentences) {
+  const embeddings = await Promise.all(sentences.map(getEmbedding));
+  return embeddings;
+}
+
+function cosineSimilarity(vecA, vecB) {
+  let dotProduct = 0;
+  let magnitudeA = 0;
+  let magnitudeB = 0;
+
+  for (let i = 0; i < vecA.length; i++) {
+    dotProduct += vecA[i] * vecB[i];
+    magnitudeA += vecA[i] * vecA[i];
+    magnitudeB += vecB[i] * vecB[i];
+  }
+
+  magnitudeA = Math.sqrt(magnitudeA);
+  magnitudeB = Math.sqrt(magnitudeB);
+
+  return dotProduct / (magnitudeA * magnitudeB);
+}
+
+function calculateSimilarityMatrix(embeddings) {
+  const similarityMatrix = [];
+  for (let i = 0; i < embeddings.length; i++) {
+    const row = [];
+    for (let j = 0; j < embeddings.length; j++) {
+      row.push(cosineSimilarity(embeddings[i].values, embeddings[j].values));
+    }
+    similarityMatrix.push(row);
+  }
+  return similarityMatrix;
+}
+
+// 4. Identify Boundaries
+function calculateMovingAverage(similarityScores, windowSize = 3) {
+  const movingAverages = [];
+  for (let i = 0; i <= similarityScores.length - windowSize; i++) {
+    const window = similarityScores.slice(i, i + windowSize);
+    const average = window.reduce((sum, score) => sum + score, 0) / windowSize;
+    movingAverages.push(average);
+  }
+  return movingAverages;
+}
+
+// 5. Create Chapters
+function createChapters(sentences, boundaries) {
+  const chapters = [];
+  let start = 0;
+  for (const end of boundaries) {
+    chapters.push(sentences.slice(start, end + 2).join(" ")); // +2 for context
+    start = end + 2;
+  }
+  chapters.push(sentences.slice(start).join(" ")); // Last chapter
+  return chapters;
+}
+
+// Putting it all together:
+async function generateChapters(sentences) {
+  console.log(sentences)
+  try {
+    //const sentences = tokenizer.tokenize(transcript.toLowerCase());
+    const sentenceEmbeddings = await getAllSentenceEmbeddings(sentences);
+
+    const similarityMatrix = calculateSimilarityMatrix(sentenceEmbeddings);
+    const consecutiveSimilarityScores = similarityMatrix.slice(0, -1).map((row, i) => row[i + 1]);
+
+    const movingAvgSimilarity = calculateMovingAverage(consecutiveSimilarityScores, 5);
+
+    const threshold = 0.4; // Adjust based on your data
+    const potentialBoundaries = movingAvgSimilarity.reduce((boundaries, score, i) => {
+      if (score < threshold) {
+        boundaries.push(i);
+      }
+      return boundaries;
+    }, []);
+
+    // Heuristic: minimum chapter length
+    const minChapterLength = 5;
+    const refinedBoundaries = [];
+    let lastBoundary = 0;
+    for (const boundary of potentialBoundaries) {
+      if (boundary - lastBoundary >= minChapterLength) {
+        refinedBoundaries.push(boundary);
+        lastBoundary = boundary;
+      }
+    }
+    // Generate Chapters
+    const chapters = createChapters(sentences, refinedBoundaries);
+    // Output the chapters with titles (optional)
+    for (let i = 0; i < chapters.length; i++) {
+        const chapterTitle = chapters[i].split(" ").slice(0, 5).join(" "); // Take first 5 words
+        console.log(`Chapter ${i + 1}: ${chapterTitle}`);
+        console.log(chapters[i]);
+        console.log("\n");
+      }
+    return chapters
+  } catch (error) {
+    console.error("Error generating chapters:", error);
+    return null
+  }
+}
+
+window.getTopics = () => getTopics(json.en.chunks)
+window.generateChapters = () => generateChapters(json.en.chunks.map(c => c.text))
+window.getCorrected = () => getCorrected(json.en.chunks)
 window.getChapters = () => getChapters(json.en.chunks)
+window.getAds = () => getAds(json.en.chunks)
 function updateEstimatedPrice( inputTokens, outputTokens, totalTokens) {
   totalTokensSpan.textContent = totalTokens
   const data = llmProviders[currentProvider]
@@ -412,7 +587,7 @@ window.getGroq = getGroq
 async function getJSONAnswer(prompt) {
   apiCalls++
   apiCallsSpan.textContent = apiCalls
-  const res = await jsonModel.generateContent([prompt])
+  const res = await jsonModel.generateContent(prompt)
   inputTokens += res.response.usageMetadata.promptTokenCount
   outputTokens += res.response.usageMetadata.candidatesTokenCount
   totalTokens += res.response.usageMetadata.totalTokenCount
@@ -436,7 +611,7 @@ async function getModelAnswer(prompt, maxretry = 4, retryDelayMs = 4000) {
             } else if (groqModels.indexOf(currentProvider) !== -1) {
               return await getGroq(prompt)
             } else {
-              res = await model.generateContent([prompt])
+              res = await model.generateContent(prompt)
               inputTokens += res.response.usageMetadata.promptTokenCount
               outputTokens += res.response.usageMetadata.candidatesTokenCount
               totalTokens += res.response.usageMetadata.totalTokenCount
@@ -1389,7 +1564,8 @@ async function punctuate(videoId, preferedLanguageCode) {
     }
     chapters = JSON.parse(JSON.stringify(json.chapters))
     createToc(chapters)
-
+    //ads = await getAds(json[languageCode].chunks)
+    console.log(ads)
     videoDuration = json.duration
     vtitle.innerHTML = `<a target="_blank" href="https://www.youtube.com/watch?v=${videoId}">${json.title}</a>`
     vurl.textContent = vurl.href = `https://www.youtube.com/watch?v=${videoId}`
@@ -1447,6 +1623,11 @@ async function punctuate(videoId, preferedLanguageCode) {
         let punctuatedText = cachedPunctuatedText
         let punctuatedTimes = testDiff(wordTimes, punctuatedText)
         punctuatedDiv.innerHTML = ''
+        //console.log(punctuatedText)
+        //let res = await getJSONAnswer('please identify paragraphs that might be commercials: ' + punctuatedText)
+        //console.log(res)
+        let generatedChapters = await generateChapters(punctuatedText.split(/\. /g))
+        console.log(generatedChapters)
         buildWords(punctuatedTimes)
         return
     }
@@ -1473,6 +1654,8 @@ async function punctuate(videoId, preferedLanguageCode) {
         localforage.setItem(videoId, json)
         let punctuatedTimes = testDiff(wordTimes, punctuatedText)
         punctuatedDiv.innerHTML = ''
+        let generatedChapters = await generateChapters(punctuatedText.split(/\. /g))
+        console.log(generatedChapters)
         buildWords(punctuatedTimes)
         return
     }
@@ -1514,6 +1697,8 @@ async function punctuate(videoId, preferedLanguageCode) {
     localforage.setItem(videoId, json)
     let punctuatedTimes = testDiff(wordTimes, punctuatedText)
     punctuatedDiv.innerHTML = ''
+    let generatedChapters = await generateChapters(punctuatedText.split(/\. /g))
+    console.log(generatedChapters)
     buildWords(punctuatedTimes)
 }
 
